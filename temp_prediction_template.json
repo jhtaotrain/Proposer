@@ -1,0 +1,28 @@
+{
+  "is_ambiguous": null,
+  "compatible_hypotheses": [],
+  "chosen_experiment_id": null,
+  "reasoning": "",
+  "_guidance": {
+    "allowed_hypothesis_ids": [
+      "H1",
+      "H2"
+    ],
+    "allowed_experiment_ids": [
+      "E1",
+      "E2",
+      "E3",
+      "E4",
+      "E5",
+      "E6",
+      "E7",
+      "E8",
+      "E9",
+      "E10"
+    ],
+    "notes": [
+      "Fill only the top-level prediction fields for evaluation.",
+      "Set chosen_experiment_id to null if the evidence is not ambiguous."
+    ]
+  }
+}

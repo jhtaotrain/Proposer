@@ -1,0 +1,275 @@
+{
+  "schema_version": "0.1",
+  "scenario_id": "osc_lin_vs_nonlinear_001",
+  "domain": "damped_oscillator",
+  "goal": {
+    "type": "distinguish_hypotheses",
+    "description": "Determine which damping mechanism best explains the observed trajectory.",
+    "success_criterion": "Select the smallest experiment that most clearly separates the remaining plausible hypotheses."
+  },
+  "observations": {
+    "episodes": [
+      {
+        "episode_id": "obs_1",
+        "condition_id": "baseline_short_window",
+        "measured_channels": [
+          "x"
+        ],
+        "time": [
+          0.0,
+          0.1,
+          0.2,
+          0.3,
+          0.4,
+          0.5
+        ],
+        "values": {
+          "x": [
+            1.0,
+            0.961,
+            0.857,
+            0.703,
+            0.517,
+            0.319
+          ]
+        },
+        "noise_model": {
+          "type": "gaussian",
+          "std": 0.02
+        },
+        "summary_stats": {
+          "observed_peak_count": 1,
+          "window_duration": 0.5
+        }
+      }
+    ],
+    "observability": {
+      "available_channels": [
+        "x"
+      ],
+      "hidden_channels": [
+        "v"
+      ],
+      "notes": "Only position is measured in the current run."
+    }
+  },
+  "hypotheses": [
+    {
+      "hypothesis_id": "H1",
+      "name": "linear_damping",
+      "description": "A damped oscillator with linear viscous damping.",
+      "family": "ode",
+      "mechanism_tags": [
+        "linear_damping"
+      ],
+      "model": {
+        "state_variables": [
+          "x",
+          "v"
+        ],
+        "observed_variables": [
+          "x"
+        ],
+        "parameters": {
+          "m": 1.0,
+          "c": 0.3,
+          "k": 2.0
+        },
+        "equations": {
+          "type": "symbolic_ode",
+          "state_order": [
+            "x",
+            "v"
+          ],
+          "rhs": [
+            "v",
+            "(-c * v - k * x) / m"
+          ]
+        }
+      },
+      "fit_to_current_data": {
+        "score": 0.013,
+        "score_type": "mse"
+      }
+    },
+    {
+      "hypothesis_id": "H2",
+      "name": "weak_nonlinear_damping",
+      "description": "A damped oscillator with velocity-dependent nonlinear damping.",
+      "family": "ode",
+      "mechanism_tags": [
+        "nonlinear_damping"
+      ],
+      "model": {
+        "state_variables": [
+          "x",
+          "v"
+        ],
+        "observed_variables": [
+          "x"
+        ],
+        "parameters": {
+          "m": 1.0,
+          "c1": 0.24,
+          "c2": 0.08,
+          "k": 2.0
+        },
+        "equations": {
+          "type": "symbolic_ode",
+          "state_order": [
+            "x",
+            "v"
+          ],
+          "rhs": [
+            "v",
+            "(-(c1 + c2 * abs(v)) * v - k * x) / m"
+          ]
+        }
+      },
+      "fit_to_current_data": {
+        "score": 0.015,
+        "score_type": "mse"
+      }
+    }
+  ],
+  "candidate_experiments": [
+    {
+      "experiment_id": "E1",
+      "name": "extend_observation_window",
+      "description": "Measure position for a longer duration using the same initial condition.",
+      "intervention_type": "measurement_change",
+      "changes": {
+        "time_window": {
+          "start": 0.0,
+          "end": 3.0
+        }
+      },
+      "measurement_plan": {
+        "channels": [
+          "x"
+        ],
+        "sampling_rate": 10.0,
+        "time_window": {
+          "start": 0.0,
+          "end": 3.0
+        }
+      },
+      "ambiguity_tags": [
+        "short_window"
+      ],
+      "cost": 1.0
+    },
+    {
+      "experiment_id": "E2",
+      "name": "increase_sampling_rate",
+      "description": "Measure position at a higher sampling rate over the same duration.",
+      "intervention_type": "measurement_change",
+      "changes": {
+        "sampling_rate": 100.0
+      },
+      "measurement_plan": {
+        "channels": [
+          "x"
+        ],
+        "sampling_rate": 100.0,
+        "time_window": {
+          "start": 0.0,
+          "end": 0.5
+        }
+      },
+      "ambiguity_tags": [
+        "low_resolution"
+      ],
+      "cost": 1.2
+    },
+    {
+      "experiment_id": "E3",
+      "name": "measure_velocity_channel",
+      "description": "Measure velocity in addition to position during the same baseline run.",
+      "intervention_type": "measurement_change",
+      "changes": {
+        "add_channels": [
+          "v"
+        ]
+      },
+      "measurement_plan": {
+        "channels": [
+          "x",
+          "v"
+        ],
+        "sampling_rate": 10.0,
+        "time_window": {
+          "start": 0.0,
+          "end": 0.5
+        }
+      },
+      "ambiguity_tags": [
+        "hidden_variable"
+      ],
+      "cost": 1.5
+    },
+    {
+      "experiment_id": "E4",
+      "name": "increase_initial_velocity",
+      "description": "Repeat the run with a larger initial velocity to amplify nonlinear damping effects.",
+      "intervention_type": "initial_condition_change",
+      "changes": {
+        "initial_state": {
+          "x": 1.0,
+          "v": 1.5
+        }
+      },
+      "measurement_plan": {
+        "channels": [
+          "x"
+        ],
+        "sampling_rate": 10.0,
+        "time_window": {
+          "start": 0.0,
+          "end": 1.0
+        }
+      },
+      "ambiguity_tags": [
+        "weak_excitation"
+      ],
+      "cost": 1.3
+    }
+  ],
+  "ambiguity_assessment": {
+    "is_ambiguous": true,
+    "compatible_hypotheses": [
+      "H1",
+      "H2"
+    ],
+    "rejected_hypotheses": [],
+    "ambiguity_type": "short_window",
+    "criterion": {
+      "type": "fit_score_band",
+      "threshold": 0.01,
+      "parameters": {
+        "best_score": 0.013,
+        "max_allowed_gap": 0.01
+      }
+    },
+    "explanation": "Both hypotheses fit the short position-only trajectory nearly equally well."
+  },
+  "ground_truth": {
+    "true_hypothesis_id": "H2",
+    "best_experiment_id": "E4",
+    "experiment_utilities": {
+      "E1": 0.42,
+      "E2": 0.09,
+      "E3": 0.31,
+      "E4": 0.68
+    },
+    "utility_score_type": "predicted_disagreement",
+    "explanation": "A stronger initial velocity drives the system into a regime where nonlinear damping produces larger disagreement."
+  },
+  "metadata": {
+    "generator": "manual_prototype_v1",
+    "seed": 7,
+    "difficulty": "medium",
+    "source": "programmatic",
+    "notes": "Prototype sample for schema validation and prompt-design work."
+  }
+}
