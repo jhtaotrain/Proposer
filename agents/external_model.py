@@ -1,9 +1,24 @@
 from __future__ import annotations
 
+import ast
 import json
 import os
 from typing import Any
 from urllib import error, request
+
+
+PREDICTION_KEYS = {
+    "is_ambiguous",
+    "compatible_hypotheses",
+    "chosen_experiment_id",
+    "reasoning",
+}
+
+
+class ModelOutputParseError(ValueError):
+    def __init__(self, message: str, *, raw_output: str) -> None:
+        super().__init__(message)
+        self.raw_output_preview = raw_output[:1000]
 
 
 def get_external_prediction(
@@ -144,17 +159,24 @@ def _post_json(
 
 
 def _parse_prediction_text(text: str) -> dict[str, Any]:
-    stripped = text.strip()
+    stripped = _strip_code_fences(text.strip())
+    errors = []
 
-    if stripped.startswith("```"):
-        stripped = _strip_code_fences(stripped)
+    for candidate in _prediction_object_candidates(stripped):
+        try:
+            parsed = _parse_object_candidate(candidate)
+        except (ValueError, SyntaxError) as exc:
+            errors.append(f"{type(exc).__name__}: {exc}")
+            continue
 
-    try:
-        parsed = json.loads(stripped)
-    except json.JSONDecodeError:
-        parsed = json.loads(_extract_first_json_object(stripped))
+        if isinstance(parsed, dict) and PREDICTION_KEYS.intersection(parsed):
+            return _normalize_prediction(parsed)
 
-    return _normalize_prediction(parsed)
+    detail = "; ".join(errors[-3:]) if errors else "no object-like candidate found"
+    raise ModelOutputParseError(
+        f"could not parse structured prediction from model output: {detail}",
+        raw_output=text,
+    )
 
 
 def _strip_code_fences(text: str) -> str:
@@ -168,35 +190,111 @@ def _strip_code_fences(text: str) -> str:
     return "\n".join(lines).strip()
 
 
-def _extract_first_json_object(text: str) -> str:
-    start = text.find("{")
-    if start == -1:
-        raise ValueError("could not find a JSON object in model output")
+def _prediction_object_candidates(text: str) -> list[str]:
+    candidates = [text]
+    candidates.extend(_extract_balanced_object_candidates(text))
 
+    deduped = []
+    seen = set()
+    for candidate in candidates:
+        stripped = _strip_code_fences(candidate.strip())
+        if stripped and stripped not in seen:
+            deduped.append(stripped)
+            seen.add(stripped)
+    return deduped
+
+
+def _parse_object_candidate(text: str) -> Any:
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return ast.literal_eval(_pythonize_json_literals(text))
+
+
+def _extract_balanced_object_candidates(text: str) -> list[str]:
+    candidates = []
     depth = 0
-    in_string = False
+    start = None
+    quote_char = None
     escape = False
-    for index in range(start, len(text)):
-        char = text[index]
-        if in_string:
+
+    for index, char in enumerate(text):
+        if quote_char is not None:
             if escape:
                 escape = False
             elif char == "\\":
                 escape = True
-            elif char == '"':
-                in_string = False
+            elif char == quote_char:
+                quote_char = None
             continue
 
-        if char == '"':
-            in_string = True
-        elif char == "{":
-            depth += 1
-        elif char == "}":
-            depth -= 1
-            if depth == 0:
-                return text[start : index + 1]
+        if char in {"'", '"'}:
+            quote_char = char
+            continue
 
-    raise ValueError("could not extract a complete JSON object from model output")
+        if char == "{":
+            if depth == 0:
+                start = index
+            depth += 1
+        elif char == "}" and depth > 0:
+            depth -= 1
+            if depth == 0 and start is not None:
+                candidates.append(text[start : index + 1])
+                start = None
+
+    return candidates
+
+
+def _pythonize_json_literals(text: str) -> str:
+    replacements = {
+        "true": "True",
+        "false": "False",
+        "null": "None",
+    }
+    result = []
+    quote_char = None
+    escape = False
+    index = 0
+
+    while index < len(text):
+        char = text[index]
+        if quote_char is not None:
+            result.append(char)
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == quote_char:
+                quote_char = None
+            index += 1
+            continue
+
+        if char in {"'", '"'}:
+            quote_char = char
+            result.append(char)
+            index += 1
+            continue
+
+        replaced = False
+        for old, new in replacements.items():
+            end_index = index + len(old)
+            before = text[index - 1] if index > 0 else ""
+            after = text[end_index] if end_index < len(text) else ""
+            if (
+                text[index:end_index] == old
+                and not (before.isalnum() or before == "_")
+                and not (after.isalnum() or after == "_")
+            ):
+                result.append(new)
+                index = end_index
+                replaced = True
+                break
+
+        if not replaced:
+            result.append(char)
+            index += 1
+
+    return "".join(result)
 
 
 def _normalize_prediction(parsed: dict[str, Any]) -> dict[str, Any]:

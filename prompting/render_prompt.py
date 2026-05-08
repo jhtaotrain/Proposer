@@ -13,6 +13,8 @@ def render_prompt(
         return _render_plain_prompt(scenario)
     if mode == "contrast":
         return _render_contrast_prompt(scenario)
+    if mode == "compare":
+        return _render_compare_prompt(scenario)
     raise ValueError(f"unsupported prompt mode: {mode}")
 
 
@@ -110,6 +112,54 @@ def _render_contrast_prompt(scenario: dict[str, Any]) -> str:
     }
     return (
         "You are evaluating competing scientific hypotheses and must select the next discriminating experiment.\n\n"
+        "Instructions:\n"
+        f"{json.dumps(instructions, indent=2)}\n\n"
+        "Scenario:\n"
+        f"{json.dumps(payload, indent=2)}"
+    )
+
+
+def _render_compare_prompt(scenario: dict[str, Any]) -> str:
+    payload = build_llm_visible_payload(scenario)
+    instructions = {
+        "task": [
+            "Decide whether the current evidence is still ambiguous.",
+            "If it is ambiguous, identify which hypotheses remain plausible.",
+            "Compare every candidate experiment before choosing.",
+            "Choose the experiment expected to produce the largest accumulated separation in the measured response.",
+        ],
+        "candidate_comparison_guidance": [
+            "For each candidate, estimate what hypothesis difference it probes.",
+            "Estimate whether the planned measured channels capture that difference.",
+            "Estimate how long the difference can accumulate over the proposed measurement window.",
+            "Estimate whether the intervention increases mechanism-relevant excitation.",
+            "Use qualitative or rough quantitative estimates only; do not assume hidden simulator outputs or oracle scores.",
+        ],
+        "output_format": {
+            "is_ambiguous": "boolean",
+            "compatible_hypotheses": ["hypothesis_id"],
+            "candidate_comparison": [
+                {
+                    "experiment_id": "experiment_id",
+                    "probed_difference": "short phrase",
+                    "channel_capture": "low | medium | high",
+                    "accumulation_duration": "short | medium | long",
+                    "excitation_strength": "low | medium | high",
+                    "expected_total_separation": "low | medium | high",
+                }
+            ],
+            "chosen_experiment_id": "experiment_id or null",
+            "reasoning": "short explanation comparing the chosen experiment against the strongest alternatives",
+        },
+        "rules": [
+            "Use only the provided observations, hypotheses, and candidate experiments.",
+            "Do not assume access to a simulator or hidden oracle scores.",
+            "If the evidence is not ambiguous, set chosen_experiment_id to null.",
+            "The final chosen_experiment_id must be one of the provided candidate experiment ids, or null if not ambiguous.",
+        ],
+    }
+    return (
+        "You are evaluating competing scientific hypotheses and must estimate which next experiment will most separate them.\n\n"
         "Instructions:\n"
         f"{json.dumps(instructions, indent=2)}\n\n"
         "Scenario:\n"

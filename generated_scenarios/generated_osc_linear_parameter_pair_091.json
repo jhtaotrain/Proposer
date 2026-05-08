@@ -1,6 +1,6 @@
 {
   "schema_version": "0.1",
-  "scenario_id": "generated_osc_nonlinear_vs_linear_001",
+  "scenario_id": "generated_osc_linear_parameter_pair_091",
   "domain": "damped_oscillator",
   "goal": {
     "type": "distinguish_hypotheses",
@@ -11,26 +11,20 @@
     "episodes": [
       {
         "episode_id": "obs_1",
-        "condition_id": "baseline_short_window",
+        "condition_id": "baseline_0p5s_5hz",
         "measured_channels": [
           "x"
         ],
         "time": [
           0.0,
-          0.1,
           0.2,
-          0.30000000000000004,
-          0.4,
-          0.5
+          0.4
         ],
         "values": {
           "x": [
             1.0,
-            0.99009880447168,
-            0.9609342411675427,
-            0.9136237509860766,
-            0.8496598698092541,
-            0.7708571919224889
+            0.9620218,
+            0.8539031911590821
           ]
         },
         "noise_model": {
@@ -39,7 +33,7 @@
         },
         "summary_stats": {
           "window_duration": 0.5,
-          "sampling_rate": 10.0
+          "sampling_rate": 5.0
         },
         "metadata": {
           "initial_state": {
@@ -56,14 +50,14 @@
       "hidden_channels": [
         "v"
       ],
-      "notes": "Baseline observation uses a short, position-only window."
+      "notes": "Baseline observation uses a limited, position-only window. The experimental initial state is recorded in episode metadata."
     }
   },
   "hypotheses": [
     {
       "hypothesis_id": "H1",
-      "name": "linear_damping",
-      "description": "A damped oscillator with linear viscous damping.",
+      "name": "linear_low_damping",
+      "description": "A damped oscillator with a slightly lower damping coefficient.",
       "family": "ode",
       "mechanism_tags": [
         "linear_damping"
@@ -78,7 +72,7 @@
         ],
         "parameters": {
           "m": 1.0,
-          "c": 0.3,
+          "c": 0.22,
           "k": 2.0
         },
         "equations": {
@@ -96,11 +90,11 @@
     },
     {
       "hypothesis_id": "H2",
-      "name": "weak_nonlinear_damping",
-      "description": "A damped oscillator with velocity-dependent nonlinear damping.",
+      "name": "linear_high_damping",
+      "description": "A damped oscillator with a slightly higher damping coefficient.",
       "family": "ode",
       "mechanism_tags": [
-        "nonlinear_damping"
+        "linear_damping"
       ],
       "model": {
         "state_variables": [
@@ -112,9 +106,8 @@
         ],
         "parameters": {
           "m": 1.0,
-          "c1": 0.24,
-          "c2": 0.08,
-          "k": 2.0
+          "c": 0.3,
+          "k": 1.95
         },
         "equations": {
           "type": "symbolic_ode",
@@ -124,7 +117,7 @@
           ],
           "rhs": [
             "v",
-            "(-(c1 + c2 * abs(v)) * v - k * x) / m"
+            "(-c * v - k * x) / m"
           ]
         }
       }
@@ -146,7 +139,7 @@
         "channels": [
           "x"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 5.0,
         "time_window": {
           "start": 0.0,
           "end": 1.0
@@ -170,7 +163,7 @@
           "window_ratio": 2.0,
           "baseline_end_time": 0.5,
           "end_time": 1.0,
-          "sampling_rate": 10.0
+          "sampling_rate": 5.0
         }
       }
     },
@@ -189,7 +182,7 @@
         "channels": [
           "x"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 5.0,
         "time_window": {
           "start": 0.0,
           "end": 2.0
@@ -213,7 +206,7 @@
           "window_ratio": 4.0,
           "baseline_end_time": 0.5,
           "end_time": 2.0,
-          "sampling_rate": 10.0
+          "sampling_rate": 5.0
         }
       }
     },
@@ -232,7 +225,7 @@
         "channels": [
           "x"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 5.0,
         "time_window": {
           "start": 0.0,
           "end": 3.0
@@ -256,7 +249,7 @@
           "window_ratio": 6.0,
           "baseline_end_time": 0.5,
           "end_time": 3.0,
-          "sampling_rate": 10.0
+          "sampling_rate": 5.0
         }
       }
     },
@@ -266,13 +259,13 @@
       "description": "Measure position over the baseline window at 2.0x the baseline sampling rate.",
       "intervention_type": "measurement_change",
       "changes": {
-        "sampling_rate": 20.0
+        "sampling_rate": 10.0
       },
       "measurement_plan": {
         "channels": [
           "x"
         ],
-        "sampling_rate": 20.0,
+        "sampling_rate": 10.0,
         "time_window": {
           "start": 0.0,
           "end": 0.5
@@ -281,8 +274,8 @@
           "experiment_family": "increase_sampling_rate",
           "parameterization": {
             "sampling_rate_ratio": 2.0,
-            "baseline_sampling_rate": 10.0,
-            "sampling_rate": 20.0,
+            "baseline_sampling_rate": 5.0,
+            "sampling_rate": 10.0,
             "baseline_duration": 0.5
           }
         }
@@ -295,8 +288,8 @@
         "experiment_family": "increase_sampling_rate",
         "parameterization": {
           "sampling_rate_ratio": 2.0,
-          "baseline_sampling_rate": 10.0,
-          "sampling_rate": 20.0,
+          "baseline_sampling_rate": 5.0,
+          "sampling_rate": 10.0,
           "baseline_duration": 0.5
         }
       }
@@ -305,6 +298,47 @@
       "experiment_id": "E5",
       "name": "increase_sampling_rate_by_5x",
       "description": "Measure position over the baseline window at 5.0x the baseline sampling rate.",
+      "intervention_type": "measurement_change",
+      "changes": {
+        "sampling_rate": 25.0
+      },
+      "measurement_plan": {
+        "channels": [
+          "x"
+        ],
+        "sampling_rate": 25.0,
+        "time_window": {
+          "start": 0.0,
+          "end": 0.5
+        },
+        "metadata": {
+          "experiment_family": "increase_sampling_rate",
+          "parameterization": {
+            "sampling_rate_ratio": 5.0,
+            "baseline_sampling_rate": 5.0,
+            "sampling_rate": 25.0,
+            "baseline_duration": 0.5
+          }
+        }
+      },
+      "ambiguity_tags": [
+        "low_resolution"
+      ],
+      "cost": 1.2,
+      "metadata": {
+        "experiment_family": "increase_sampling_rate",
+        "parameterization": {
+          "sampling_rate_ratio": 5.0,
+          "baseline_sampling_rate": 5.0,
+          "sampling_rate": 25.0,
+          "baseline_duration": 0.5
+        }
+      }
+    },
+    {
+      "experiment_id": "E6",
+      "name": "increase_sampling_rate_by_10x",
+      "description": "Measure position over the baseline window at 10.0x the baseline sampling rate.",
       "intervention_type": "measurement_change",
       "changes": {
         "sampling_rate": 50.0
@@ -321,50 +355,9 @@
         "metadata": {
           "experiment_family": "increase_sampling_rate",
           "parameterization": {
-            "sampling_rate_ratio": 5.0,
-            "baseline_sampling_rate": 10.0,
-            "sampling_rate": 50.0,
-            "baseline_duration": 0.5
-          }
-        }
-      },
-      "ambiguity_tags": [
-        "low_resolution"
-      ],
-      "cost": 1.2,
-      "metadata": {
-        "experiment_family": "increase_sampling_rate",
-        "parameterization": {
-          "sampling_rate_ratio": 5.0,
-          "baseline_sampling_rate": 10.0,
-          "sampling_rate": 50.0,
-          "baseline_duration": 0.5
-        }
-      }
-    },
-    {
-      "experiment_id": "E6",
-      "name": "increase_sampling_rate_by_10x",
-      "description": "Measure position over the baseline window at 10.0x the baseline sampling rate.",
-      "intervention_type": "measurement_change",
-      "changes": {
-        "sampling_rate": 100.0
-      },
-      "measurement_plan": {
-        "channels": [
-          "x"
-        ],
-        "sampling_rate": 100.0,
-        "time_window": {
-          "start": 0.0,
-          "end": 0.5
-        },
-        "metadata": {
-          "experiment_family": "increase_sampling_rate",
-          "parameterization": {
             "sampling_rate_ratio": 10.0,
-            "baseline_sampling_rate": 10.0,
-            "sampling_rate": 100.0,
+            "baseline_sampling_rate": 5.0,
+            "sampling_rate": 50.0,
             "baseline_duration": 0.5
           }
         }
@@ -377,8 +370,8 @@
         "experiment_family": "increase_sampling_rate",
         "parameterization": {
           "sampling_rate_ratio": 10.0,
-          "baseline_sampling_rate": 10.0,
-          "sampling_rate": 100.0,
+          "baseline_sampling_rate": 5.0,
+          "sampling_rate": 50.0,
           "baseline_duration": 0.5
         }
       }
@@ -398,7 +391,7 @@
           "x",
           "v"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 5.0,
         "time_window": {
           "start": 0.0,
           "end": 0.5
@@ -409,7 +402,7 @@
             "window_ratio": 1.0,
             "baseline_end_time": 0.5,
             "duration": 0.5,
-            "sampling_rate": 10.0
+            "sampling_rate": 5.0
           }
         }
       },
@@ -423,7 +416,7 @@
           "window_ratio": 1.0,
           "baseline_end_time": 0.5,
           "duration": 0.5,
-          "sampling_rate": 10.0
+          "sampling_rate": 5.0
         }
       }
     },
@@ -442,7 +435,7 @@
           "x",
           "v"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 5.0,
         "time_window": {
           "start": 0.0,
           "end": 1.0
@@ -453,7 +446,7 @@
             "window_ratio": 2.0,
             "baseline_end_time": 0.5,
             "duration": 1.0,
-            "sampling_rate": 10.0
+            "sampling_rate": 5.0
           }
         }
       },
@@ -467,7 +460,7 @@
           "window_ratio": 2.0,
           "baseline_end_time": 0.5,
           "duration": 1.0,
-          "sampling_rate": 10.0
+          "sampling_rate": 5.0
         }
       }
     },
@@ -486,7 +479,7 @@
         "channels": [
           "x"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 5.0,
         "time_window": {
           "start": 0.0,
           "end": 1.0
@@ -500,7 +493,7 @@
             "window_ratio": 2.0,
             "baseline_end_time": 0.5,
             "duration": 1.0,
-            "sampling_rate": 10.0
+            "sampling_rate": 5.0
           }
         }
       },
@@ -517,7 +510,7 @@
           "window_ratio": 2.0,
           "baseline_end_time": 0.5,
           "duration": 1.0,
-          "sampling_rate": 10.0
+          "sampling_rate": 5.0
         }
       }
     },
@@ -536,7 +529,7 @@
         "channels": [
           "x"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 5.0,
         "time_window": {
           "start": 0.0,
           "end": 1.0
@@ -550,7 +543,7 @@
             "window_ratio": 2.0,
             "baseline_end_time": 0.5,
             "duration": 1.0,
-            "sampling_rate": 10.0
+            "sampling_rate": 5.0
           }
         }
       },
@@ -567,7 +560,7 @@
           "window_ratio": 2.0,
           "baseline_end_time": 0.5,
           "duration": 1.0,
-          "sampling_rate": 10.0
+          "sampling_rate": 5.0
         }
       }
     }
@@ -582,37 +575,39 @@
     "ambiguity_type": "short_window",
     "criterion": {
       "type": "fit_score_band",
-      "threshold": 0.01,
+      "threshold": 0.005,
       "parameters": {
         "best_score": 0.0,
         "score_type": "mse"
       }
     },
-    "explanation": "Multiple hypotheses remain compatible with the current observations. The kept hypotheses (weak_nonlinear_damping, linear_damping) all fall within 0.01 of the best fit score 0.000000."
+    "explanation": "Multiple hypotheses remain compatible with the current observations. The kept hypotheses (linear_high_damping, linear_low_damping) all fall within 0.005 of the best fit score 0.000000."
   },
   "ground_truth": {
     "true_hypothesis_id": "H2",
     "best_experiment_id": "E3",
     "experiment_utilities": {
-      "E3": 0.00778226612223954,
-      "E2": 0.005326369385187433,
-      "E10": 0.003286093705806711,
-      "E8": 0.0019416982006662188,
-      "E7": 0.0009477375529092757,
-      "E1": 0.0005054012204399252,
-      "E9": 0.00044108535344819256,
-      "E4": 0.00029807712610203046,
-      "E5": 0.0002901794238315099,
-      "E6": 0.0002874936813808845
+      "E3": 0.03843698780223163,
+      "E2": 0.03751810393354615,
+      "E8": 0.023723418538614816,
+      "E1": 0.012788640068339177,
+      "E7": 0.007851459411294476,
+      "E9": 0.006724230581945656,
+      "E4": 0.002985202036313972,
+      "E6": 0.002738597573576674,
+      "E10": 0.002648009062279244,
+      "E5": 0.002569150230269285
     },
     "utility_score_type": "pairwise_average_disagreement",
     "explanation": "Generated by the oscillator backend oracle using pairwise disagreement over simulated candidate experiment responses."
   },
   "metadata": {
     "generator": "build_oscillator_scenarios.py",
-    "seed": 0,
+    "seed": 7,
     "difficulty": "medium",
-    "source": "programmatic",
-    "notes": "Generated short-window ambiguity scenario for nonlinear vs linear damping."
+    "source": "programmatic_sampled",
+    "notes": "Sampled oscillator scenario with pair_type=linear_parameter_pair, library_style=window.",
+    "pair_type": "linear_parameter_pair",
+    "candidate_library_style": "window"
   }
 }

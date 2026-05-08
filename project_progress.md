@@ -11,6 +11,18 @@
 - Updated the illustrative example and README goal text to match the current max-separation benchmark setting.
 - Added external generation controls to [agents/run_llm_baseline.py](D:/science_agent/Proposer/agents/run_llm_baseline.py:1) and [agents/external_model.py](D:/science_agent/Proposer/agents/external_model.py:1), including temperature, top-p, top-k, max tokens, and vLLM/Qwen-style thinking flags.
 - Updated [README.md](D:/science_agent/Proposer/README.md:1) with an example command for running Qwen-style thinking models through vLLM.
+- Added utility-regret evaluation metrics to [evaluation/compare_prediction_to_oracle.py](D:/science_agent/Proposer/evaluation/compare_prediction_to_oracle.py:1): predicted utility, oracle-best utility, raw regret, normalized regret, utility ratio, and near-optimal accuracy at 0.8 and 0.5.
+- Verified the regret metrics on oracle-best, near-miss, and invalid experiment predictions for the generated nonlinear-vs-linear scenario.
+- Added [agents/run_batch_baseline.py](D:/science_agent/Proposer/agents/run_batch_baseline.py:1), which runs a baseline over a scenario glob, writes JSONL per-scenario results, and prints aggregate accuracy/regret metrics.
+- Refactored [agents/run_llm_baseline.py](D:/science_agent/Proposer/agents/run_llm_baseline.py:1) so the single-scenario and batch runners share the same prompt/prediction/external-model options.
+- Smoke-tested the batch runner on the two generated scenarios with the heuristic baseline.
+- Expanded [generation/build_oscillator_scenarios.py](D:/science_agent/Proposer/generation/build_oscillator_scenarios.py:1) into a seeded, filtered batch generator with `--num-scenarios`, `--seed`, `--output-dir`, `--max-attempts`, and `--clear-output`.
+- Regenerated 20 oscillator scenarios under [generated_scenarios](D:/science_agent/Proposer/generated_scenarios:1) using `--num-scenarios 20 --seed 7`.
+- Validated all 20 generated scenarios against the Pydantic schema and smoke-tested them with the batch heuristic runner.
+- Hardened the external model parser in [agents/external_model.py](D:/science_agent/Proposer/agents/external_model.py:1) to handle fenced outputs, Python-style dictionaries, single quotes, lowercase booleans/nulls, and extra reasoning text before the prediction object.
+- Updated [agents/run_batch_baseline.py](D:/science_agent/Proposer/agents/run_batch_baseline.py:1) so parse failures include a raw model output preview for debugging.
+- Added `compare` prompt mode in [prompting/render_prompt.py](D:/science_agent/Proposer/prompting/render_prompt.py:1), which asks the model to compare each candidate experiment using channel capture, accumulation duration, excitation strength, and expected total separation before choosing.
+- Extended the shared runner CLI so both single-scenario and batch runs accept `--prompt-mode compare`.
 
 ## 2026-05-05
 
@@ -85,4 +97,4 @@ The current simulator supports:
 
 ### Next Suggested Step
 
-- Add a small batch runner so we can score many scenarios and summarize aggregate ambiguity accuracy and experiment-selection accuracy across a generated set.
+- Run Qwen with `contrast` versus `compare` prompt modes on the 100-scenario batch, then inspect exact accuracy, utility regret, and near-optimal rates.

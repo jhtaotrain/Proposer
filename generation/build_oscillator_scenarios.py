@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import argparse
 import json
 from copy import deepcopy
+from math import ceil
 from pathlib import Path
+import random
 import sys
 from typing import Any
 
@@ -28,17 +31,55 @@ OUTPUT_DIR = Path("generated_scenarios")
 
 
 def main() -> int:
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    parser = argparse.ArgumentParser(
+        description="Generate oracle-labeled damped-oscillator benchmark scenarios."
+    )
+    parser.add_argument(
+        "--num-scenarios",
+        type=int,
+        default=20,
+        help="Number of accepted scenarios to write.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="Random seed for sampled scenario specs.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=OUTPUT_DIR.as_posix(),
+        help="Directory for generated scenario JSON files.",
+    )
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=None,
+        help="Maximum sampled specs to try before stopping.",
+    )
+    parser.add_argument(
+        "--clear-output",
+        action="store_true",
+        help="Delete existing generated_osc_*.json files in the output directory before writing.",
+    )
+    args = parser.parse_args()
 
-    scenario_specs = [
-        _nonlinear_vs_linear_short_window_spec(),
-        _linear_vs_driven_short_window_spec(),
-    ]
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(exist_ok=True)
+    if args.clear_output:
+        for path in output_dir.glob("generated_osc_*.json"):
+            path.unlink()
+
+    scenario_specs = generate_scenario_specs(
+        num_scenarios=args.num_scenarios,
+        seed=args.seed,
+        max_attempts=args.max_attempts,
+    )
 
     written_files = []
     for spec in scenario_specs:
         scenario = build_scenario(spec)
-        output_path = OUTPUT_DIR / f"{scenario['scenario_id']}.json"
+        output_path = output_dir / f"{scenario['scenario_id']}.json"
         output_path.write_text(json.dumps(scenario, indent=2), encoding="utf-8")
         written_files.append(output_path)
 
@@ -46,6 +87,67 @@ def main() -> int:
     for path in written_files:
         print(path.as_posix())
     return 0
+
+
+def generate_scenario_specs(
+    *,
+    num_scenarios: int,
+    seed: int,
+    max_attempts: int | None = None,
+) -> list[dict[str, Any]]:
+    if num_scenarios <= 0:
+        raise ValueError("num_scenarios must be positive")
+
+    rng = random.Random(seed)
+    attempts_limit = max_attempts or num_scenarios * 200
+    specs: list[dict[str, Any]] = []
+    best_family_counts: dict[str, int] = {}
+    max_per_best_family = max(2, ceil(num_scenarios * 0.45))
+
+    legacy_specs = [
+        _nonlinear_vs_linear_short_window_spec(),
+        _linear_vs_driven_short_window_spec(),
+    ]
+    for legacy_spec in legacy_specs[:num_scenarios]:
+        scenario = build_scenario(legacy_spec)
+        best_family = _best_experiment_family(scenario)
+        specs.append(legacy_spec)
+        best_family_counts[best_family] = best_family_counts.get(best_family, 0) + 1
+
+    attempts = 0
+    candidate_index = 1
+    while len(specs) < num_scenarios and attempts < attempts_limit:
+        attempts += 1
+        spec = _sample_scenario_spec(
+            rng=rng,
+            scenario_index=candidate_index,
+            seed=seed,
+        )
+        candidate_index += 1
+
+        try:
+            scenario = build_scenario(spec)
+        except ValueError:
+            continue
+
+        if not _passes_quality_filters(scenario):
+            continue
+
+        best_family = _best_experiment_family(scenario)
+        if best_family_counts.get(best_family, 0) >= max_per_best_family:
+            continue
+
+        specs.append(spec)
+        best_family_counts[best_family] = best_family_counts.get(best_family, 0) + 1
+
+    if len(specs) < num_scenarios:
+        print(
+            "warning: generated only "
+            f"{len(specs)} accepted scenario(s) after {attempts} attempt(s)",
+            file=sys.stderr,
+        )
+
+    return specs
 
 
 def build_scenario(spec: dict[str, Any]) -> dict[str, Any]:
@@ -145,6 +247,9 @@ def _generate_observation_episode(
             "window_duration": condition["duration"],
             "sampling_rate": condition["sampling_rate"],
         },
+        "metadata": {
+            "initial_state": deepcopy(condition["initial_state"]),
+        },
     }
 
 
@@ -185,13 +290,102 @@ def _common_goal() -> dict[str, Any]:
 
 
 def _common_candidate_experiments() -> list[dict[str, Any]]:
+    return _candidate_experiments_for_condition(
+        baseline_duration=0.5,
+        baseline_sampling_rate=10.0,
+        library_style="window",
+    )
+
+
+def _candidate_experiments_for_condition(
+    *,
+    baseline_duration: float,
+    baseline_sampling_rate: float,
+    library_style: str,
+) -> list[dict[str, Any]]:
+    if library_style == "excitation":
+        window_ratios = [1.5, 2.0, 3.0]
+        velocity_window_ratios = [1.0, 2.0]
+        initial_velocity_values = [0.75, 1.5, 2.25]
+    elif library_style == "velocity":
+        window_ratios = [1.5, 2.0]
+        velocity_window_ratios = [2.0, 4.0]
+        initial_velocity_values = [0.75, 1.5]
+    elif library_style == "sampling":
+        window_ratios = [1.25, 1.5, 2.0]
+        velocity_window_ratios = [1.0, 1.5]
+        initial_velocity_values = [0.75, 1.5]
+    else:
+        window_ratios = [2.0, 4.0, 6.0]
+        velocity_window_ratios = [1.0, 2.0]
+        initial_velocity_values = [0.75, 1.5]
+
+    sampling_ratios = [2.0, 5.0, 10.0]
+    reference_initial_velocity = 0.75
+    experiments: list[dict[str, Any]] = []
+    next_id = 1
+
+    for ratio, cost in zip(window_ratios, [1.0, 1.2, 1.4]):
+        experiments.append(
+            _window_experiment(
+                f"E{next_id}",
+                end_time=baseline_duration * ratio,
+                sampling_rate=baseline_sampling_rate,
+                baseline_end_time=baseline_duration,
+                cost=cost,
+            )
+        )
+        next_id += 1
+
+    for ratio, cost in zip(sampling_ratios, [1.0, 1.2, 1.4]):
+        experiments.append(
+            _sampling_experiment(
+                f"E{next_id}",
+                sampling_rate=baseline_sampling_rate * ratio,
+                baseline_sampling_rate=baseline_sampling_rate,
+                baseline_duration=baseline_duration,
+                cost=cost,
+            )
+        )
+        next_id += 1
+
+    for ratio, cost in zip(velocity_window_ratios, [1.5, 1.8]):
+        experiments.append(
+            _velocity_channel_experiment(
+                f"E{next_id}",
+                duration=baseline_duration * ratio,
+                sampling_rate=baseline_sampling_rate,
+                baseline_end_time=baseline_duration,
+                cost=cost,
+            )
+        )
+        next_id += 1
+
+    for initial_velocity, cost in zip(initial_velocity_values, [1.2, 1.5, 1.8]):
+        experiments.append(
+            _initial_velocity_experiment(
+                f"E{next_id}",
+                initial_velocity=initial_velocity,
+                reference_initial_velocity=reference_initial_velocity,
+                duration=baseline_duration * 2.0,
+                baseline_end_time=baseline_duration,
+                sampling_rate=baseline_sampling_rate,
+                cost=cost,
+            )
+        )
+        next_id += 1
+
+    return experiments
+
+
+def _legacy_common_candidate_experiments() -> list[dict[str, Any]]:
     experiments = [
         _window_experiment("E1", end_time=1.0, sampling_rate=10.0, baseline_end_time=0.5, cost=1.0),
         _window_experiment("E2", end_time=2.0, sampling_rate=10.0, baseline_end_time=0.5, cost=1.2),
         _window_experiment("E3", end_time=3.0, sampling_rate=10.0, baseline_end_time=0.5, cost=1.4),
-        _sampling_experiment("E4", sampling_rate=20.0, baseline_sampling_rate=10.0, cost=1.0),
-        _sampling_experiment("E5", sampling_rate=50.0, baseline_sampling_rate=10.0, cost=1.2),
-        _sampling_experiment("E6", sampling_rate=100.0, baseline_sampling_rate=10.0, cost=1.4),
+        _sampling_experiment("E4", sampling_rate=20.0, baseline_sampling_rate=10.0, baseline_duration=0.5, cost=1.0),
+        _sampling_experiment("E5", sampling_rate=50.0, baseline_sampling_rate=10.0, baseline_duration=0.5, cost=1.2),
+        _sampling_experiment("E6", sampling_rate=100.0, baseline_sampling_rate=10.0, baseline_duration=0.5, cost=1.4),
         _velocity_channel_experiment("E7", duration=0.5, sampling_rate=10.0, baseline_end_time=0.5, cost=1.5),
         _velocity_channel_experiment("E8", duration=1.0, sampling_rate=10.0, baseline_end_time=0.5, cost=1.8),
         _initial_velocity_experiment(
@@ -200,6 +394,7 @@ def _common_candidate_experiments() -> list[dict[str, Any]]:
             reference_initial_velocity=0.75,
             duration=1.0,
             baseline_end_time=0.5,
+            sampling_rate=10.0,
             cost=1.2,
         ),
         _initial_velocity_experiment(
@@ -208,6 +403,7 @@ def _common_candidate_experiments() -> list[dict[str, Any]]:
             reference_initial_velocity=0.75,
             duration=1.0,
             baseline_end_time=0.5,
+            sampling_rate=10.0,
             cost=1.5,
         ),
     ]
@@ -265,6 +461,7 @@ def _sampling_experiment(
     *,
     sampling_rate: float,
     baseline_sampling_rate: float,
+    baseline_duration: float,
     cost: float,
 ) -> dict[str, Any]:
     sampling_ratio = sampling_rate / baseline_sampling_rate
@@ -279,13 +476,14 @@ def _sampling_experiment(
         "measurement_plan": {
             "channels": ["x"],
             "sampling_rate": sampling_rate,
-            "time_window": {"start": 0.0, "end": 0.5},
+            "time_window": {"start": 0.0, "end": baseline_duration},
             "metadata": {
                 "experiment_family": "increase_sampling_rate",
                 "parameterization": {
                     "sampling_rate_ratio": sampling_ratio,
                     "baseline_sampling_rate": baseline_sampling_rate,
                     "sampling_rate": sampling_rate,
+                    "baseline_duration": baseline_duration,
                 },
             },
         },
@@ -297,6 +495,7 @@ def _sampling_experiment(
                 "sampling_rate_ratio": sampling_ratio,
                 "baseline_sampling_rate": baseline_sampling_rate,
                 "sampling_rate": sampling_rate,
+                "baseline_duration": baseline_duration,
             },
         },
     }
@@ -354,6 +553,7 @@ def _initial_velocity_experiment(
     reference_initial_velocity: float,
     duration: float,
     baseline_end_time: float,
+    sampling_rate: float,
     cost: float,
 ) -> dict[str, Any]:
     velocity_ratio = initial_velocity / reference_initial_velocity
@@ -370,7 +570,7 @@ def _initial_velocity_experiment(
         },
         "measurement_plan": {
             "channels": ["x"],
-            "sampling_rate": 10.0,
+            "sampling_rate": sampling_rate,
             "time_window": {"start": 0.0, "end": duration},
             "metadata": {
                 "experiment_family": "increase_initial_velocity",
@@ -381,6 +581,7 @@ def _initial_velocity_experiment(
                     "window_ratio": window_ratio,
                     "baseline_end_time": baseline_end_time,
                     "duration": duration,
+                    "sampling_rate": sampling_rate,
                 },
             },
         },
@@ -395,6 +596,7 @@ def _initial_velocity_experiment(
                 "window_ratio": window_ratio,
                 "baseline_end_time": baseline_end_time,
                 "duration": duration,
+                "sampling_rate": sampling_rate,
             },
         },
     }
@@ -408,6 +610,311 @@ def _format_numeric_token(value: float) -> str:
 
 def _format_ratio_token(value: float) -> str:
     return _format_numeric_token(value)
+
+
+def _sample_scenario_spec(
+    *,
+    rng: random.Random,
+    scenario_index: int,
+    seed: int,
+) -> dict[str, Any]:
+    pair_type = rng.choice(
+        [
+            "linear_vs_nonlinear",
+            "linear_vs_driven",
+            "nonlinear_vs_driven",
+            "linear_parameter_pair",
+        ]
+    )
+    library_style = rng.choice(["window", "excitation", "velocity", "sampling"])
+    baseline_duration = rng.choice([0.3, 0.5, 0.8])
+    baseline_sampling_rate = rng.choice([5.0, 10.0, 20.0])
+    initial_velocity = rng.choice([0.0, 0.15, 0.3, 0.5])
+
+    hypothesis_pair = _sample_hypothesis_pair(pair_type=pair_type, rng=rng)
+    true_hypothesis = rng.choice(hypothesis_pair)
+    scenario_id = f"generated_osc_{pair_type}_{scenario_index:03d}"
+    difficulty = _difficulty_from_baseline(
+        baseline_duration=baseline_duration,
+        initial_velocity=initial_velocity,
+    )
+
+    return {
+        "scenario_id": scenario_id,
+        "goal": _common_goal(),
+        "baseline_condition": {
+            "condition_id": (
+                f"baseline_{_format_numeric_token(baseline_duration)}s_"
+                f"{_format_numeric_token(baseline_sampling_rate)}hz"
+            ),
+            "duration": baseline_duration,
+            "sampling_rate": baseline_sampling_rate,
+            "initial_state": {"x": 1.0, "v": initial_velocity},
+            "measured_channels": ["x"],
+        },
+        "observability": {
+            "available_channels": ["x"],
+            "hidden_channels": ["v"],
+            "notes": (
+                "Baseline observation uses a limited, position-only window. "
+                "The experimental initial state is recorded in episode metadata."
+            ),
+        },
+        "true_hypothesis": true_hypothesis,
+        "candidate_hypotheses": hypothesis_pair,
+        "candidate_experiments": _candidate_experiments_for_condition(
+            baseline_duration=baseline_duration,
+            baseline_sampling_rate=baseline_sampling_rate,
+            library_style=library_style,
+        ),
+        "ambiguity_rule": {
+            "max_score_gap": rng.choice([0.0025, 0.005, 0.01]),
+            "ambiguity_type": _ambiguity_type_from_library_style(library_style),
+        },
+        "metadata": {
+            "generator": "build_oscillator_scenarios.py",
+            "seed": seed,
+            "difficulty": difficulty,
+            "source": "programmatic_sampled",
+            "notes": (
+                f"Sampled oscillator scenario with pair_type={pair_type}, "
+                f"library_style={library_style}."
+            ),
+            "pair_type": pair_type,
+            "candidate_library_style": library_style,
+        },
+    }
+
+
+def _sample_hypothesis_pair(
+    *,
+    pair_type: str,
+    rng: random.Random,
+) -> list[dict[str, Any]]:
+    if pair_type == "linear_vs_nonlinear":
+        k = rng.choice([1.5, 2.0, 2.5])
+        c = rng.choice([0.22, 0.3, 0.38])
+        nonlinear_c2 = rng.choice([0.05, 0.08, 0.12, 0.18])
+        return [
+            _linear_hypothesis(
+                hypothesis_id="H1",
+                name="linear_damping",
+                description="A damped oscillator with linear viscous damping.",
+                m=1.0,
+                c=c,
+                k=k,
+            ),
+            _nonlinear_hypothesis(
+                hypothesis_id="H2",
+                name="weak_nonlinear_damping",
+                description="A damped oscillator with velocity-dependent nonlinear damping.",
+                m=1.0,
+                c1=max(0.05, c - nonlinear_c2),
+                c2=nonlinear_c2,
+                k=k,
+            ),
+        ]
+
+    if pair_type == "linear_vs_driven":
+        k = rng.choice([1.5, 2.0, 2.5])
+        c = rng.choice([0.22, 0.3, 0.38])
+        return [
+            _linear_hypothesis(
+                hypothesis_id="H1",
+                name="linear_damping",
+                description="A damped oscillator with linear viscous damping and no external drive.",
+                m=1.0,
+                c=c,
+                k=k,
+            ),
+            _linear_hypothesis(
+                hypothesis_id="H2",
+                name="weak_external_drive",
+                description="A damped oscillator with a weak sinusoidal external drive.",
+                m=1.0,
+                c=c,
+                k=k,
+                drive_amplitude=rng.choice([0.015, 0.03, 0.05, 0.08]),
+                drive_frequency=rng.choice([1.2, 1.8, 2.4]),
+            ),
+        ]
+
+    if pair_type == "nonlinear_vs_driven":
+        k = rng.choice([1.5, 2.0, 2.5])
+        c = rng.choice([0.22, 0.3, 0.38])
+        return [
+            _nonlinear_hypothesis(
+                hypothesis_id="H1",
+                name="weak_nonlinear_damping",
+                description="A damped oscillator with velocity-dependent nonlinear damping.",
+                m=1.0,
+                c1=max(0.05, c - 0.08),
+                c2=rng.choice([0.05, 0.08, 0.12]),
+                k=k,
+            ),
+            _linear_hypothesis(
+                hypothesis_id="H2",
+                name="weak_external_drive",
+                description="A damped oscillator with a weak sinusoidal external drive.",
+                m=1.0,
+                c=c,
+                k=k,
+                drive_amplitude=rng.choice([0.015, 0.03, 0.05]),
+                drive_frequency=rng.choice([1.2, 1.8, 2.4]),
+            ),
+        ]
+
+    if pair_type == "linear_parameter_pair":
+        k = rng.choice([1.5, 2.0, 2.5])
+        c = rng.choice([0.22, 0.3, 0.38])
+        return [
+            _linear_hypothesis(
+                hypothesis_id="H1",
+                name="linear_low_damping",
+                description="A damped oscillator with a slightly lower damping coefficient.",
+                m=1.0,
+                c=c,
+                k=k,
+            ),
+            _linear_hypothesis(
+                hypothesis_id="H2",
+                name="linear_high_damping",
+                description="A damped oscillator with a slightly higher damping coefficient.",
+                m=1.0,
+                c=c + rng.choice([0.03, 0.05, 0.08]),
+                k=k + rng.choice([-0.05, 0.0, 0.05]),
+            ),
+        ]
+
+    raise ValueError(f"unsupported pair_type: {pair_type}")
+
+
+def _linear_hypothesis(
+    *,
+    hypothesis_id: str,
+    name: str,
+    description: str,
+    m: float,
+    c: float,
+    k: float,
+    drive_amplitude: float | None = None,
+    drive_frequency: float | None = None,
+) -> dict[str, Any]:
+    parameters: dict[str, float] = {"m": m, "c": c, "k": k}
+    rhs = "(-c * v - k * x) / m"
+    mechanism_tags = ["linear_damping"]
+    if drive_amplitude is not None and drive_frequency is not None:
+        parameters["A"] = drive_amplitude
+        parameters["omega"] = drive_frequency
+        rhs = "(-c * v - k * x + A * cos(omega * t)) / m"
+        mechanism_tags = ["external_drive"]
+
+    return {
+        "hypothesis_id": hypothesis_id,
+        "name": name,
+        "description": description,
+        "mechanism_tags": mechanism_tags,
+        "model": {
+            "state_variables": ["x", "v"],
+            "observed_variables": ["x"],
+            "parameters": parameters,
+            "equations": {
+                "type": "symbolic_ode",
+                "state_order": ["x", "v"],
+                "rhs": ["v", rhs],
+            },
+        },
+    }
+
+
+def _nonlinear_hypothesis(
+    *,
+    hypothesis_id: str,
+    name: str,
+    description: str,
+    m: float,
+    c1: float,
+    c2: float,
+    k: float,
+) -> dict[str, Any]:
+    return {
+        "hypothesis_id": hypothesis_id,
+        "name": name,
+        "description": description,
+        "mechanism_tags": ["nonlinear_damping"],
+        "model": {
+            "state_variables": ["x", "v"],
+            "observed_variables": ["x"],
+            "parameters": {"m": m, "c1": c1, "c2": c2, "k": k},
+            "equations": {
+                "type": "symbolic_ode",
+                "state_order": ["x", "v"],
+                "rhs": [
+                    "v",
+                    "(-(c1 + c2 * abs(v)) * v - k * x) / m",
+                ],
+            },
+        },
+    }
+
+
+def _ambiguity_type_from_library_style(library_style: str) -> str:
+    return {
+        "window": "short_window",
+        "excitation": "weak_excitation",
+        "velocity": "hidden_variable",
+        "sampling": "low_resolution",
+    }.get(library_style, "custom")
+
+
+def _difficulty_from_baseline(
+    *,
+    baseline_duration: float,
+    initial_velocity: float,
+) -> str:
+    if baseline_duration <= 0.3 and initial_velocity <= 0.15:
+        return "hard"
+    if baseline_duration <= 0.5:
+        return "medium"
+    return "easy"
+
+
+def _passes_quality_filters(scenario: dict[str, Any]) -> bool:
+    ambiguity = scenario.get("ambiguity_assessment") or {}
+    if not ambiguity.get("is_ambiguous"):
+        return False
+    if len(ambiguity.get("compatible_hypotheses") or []) < 2:
+        return False
+
+    utilities = (scenario.get("ground_truth") or {}).get("experiment_utilities") or {}
+    if len(utilities) < 2:
+        return False
+
+    ranked_utilities = sorted((float(value) for value in utilities.values()), reverse=True)
+    best = ranked_utilities[0]
+    second_best = ranked_utilities[1]
+    worst = ranked_utilities[-1]
+
+    if best <= 1e-5:
+        return False
+    if best - worst <= 1e-6:
+        return False
+    if second_best <= 0.0:
+        return False
+
+    best_to_second_ratio = best / second_best
+    return 1.02 <= best_to_second_ratio <= 20.0
+
+
+def _best_experiment_family(scenario: dict[str, Any]) -> str:
+    best_experiment_id = (scenario.get("ground_truth") or {}).get("best_experiment_id")
+    for experiment in scenario.get("candidate_experiments", []):
+        if experiment["experiment_id"] == best_experiment_id:
+            return (
+                experiment.get("metadata", {})
+                .get("experiment_family", "unknown")
+            )
+    return "unknown"
 
 
 def _nonlinear_vs_linear_short_window_spec() -> dict[str, Any]:

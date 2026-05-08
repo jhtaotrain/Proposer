@@ -16,19 +16,61 @@ from prompting.render_prompt import render_prompt
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
+    parser = build_arg_parser(
         description="Render a no-simulator prompt and produce a structured baseline prediction."
     )
-    parser.add_argument(
-        "scenario_path",
-        nargs="?",
-        default="generated_scenarios/generated_osc_nonlinear_vs_linear_001.json",
-        help="Path to a scenario JSON file.",
+    args = parser.parse_args()
+
+    scenario_path = Path(args.scenario_path)
+    with scenario_path.open("r", encoding="utf-8") as handle:
+        scenario = json.load(handle)
+
+    prompt = render_prompt(scenario, mode=args.prompt_mode)
+    if args.write_prompt:
+        Path(args.write_prompt).write_text(prompt, encoding="utf-8")
+    if args.write_prediction_template:
+        template = build_prediction_template(scenario)
+        Path(args.write_prediction_template).write_text(
+            json.dumps(template, indent=2),
+            encoding="utf-8",
+        )
+    prediction = get_prediction_from_args(
+        scenario=scenario,
+        prompt=prompt,
+        args=args,
     )
+    evaluation = compare_prediction_to_oracle(scenario=scenario, prediction=prediction)
+
+    report = {
+        "scenario_id": scenario["scenario_id"],
+        "prompt_mode": args.prompt_mode,
+        "prediction_mode": args.prediction_mode,
+        "external_generation_config": external_generation_config_from_args(args),
+        "prompt": prompt,
+        "prediction": prediction,
+        "evaluation": evaluation,
+    }
+    print(json.dumps(report, indent=2))
+    return 0
+
+
+def build_arg_parser(
+    *,
+    description: str,
+    include_scenario_path: bool = True,
+) -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=description)
+    if include_scenario_path:
+        parser.add_argument(
+            "scenario_path",
+            nargs="?",
+            default="generated_scenarios/generated_osc_nonlinear_vs_linear_001.json",
+            help="Path to a scenario JSON file.",
+        )
     parser.add_argument(
         "--prompt-mode",
         default="plain",
-        choices=["plain", "contrast"],
+        choices=["plain", "contrast", "compare"],
         help="Prompt style to render.",
     )
     parser.add_argument(
@@ -112,22 +154,16 @@ def main() -> int:
             "Use 'on' to pass enable_thinking=true and 'off' for false."
         ),
     )
-    args = parser.parse_args()
+    return parser
 
-    scenario_path = Path(args.scenario_path)
-    with scenario_path.open("r", encoding="utf-8") as handle:
-        scenario = json.load(handle)
 
-    prompt = render_prompt(scenario, mode=args.prompt_mode)
-    if args.write_prompt:
-        Path(args.write_prompt).write_text(prompt, encoding="utf-8")
-    if args.write_prediction_template:
-        template = build_prediction_template(scenario)
-        Path(args.write_prediction_template).write_text(
-            json.dumps(template, indent=2),
-            encoding="utf-8",
-        )
-    prediction = _get_prediction(
+def get_prediction_from_args(
+    *,
+    scenario: dict[str, Any],
+    prompt: str,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    return _get_prediction(
         scenario=scenario,
         prompt=prompt,
         prediction_mode=args.prediction_mode,
@@ -143,19 +179,6 @@ def main() -> int:
         external_max_tokens=args.external_max_tokens,
         external_thinking=args.external_thinking,
     )
-    evaluation = compare_prediction_to_oracle(scenario=scenario, prediction=prediction)
-
-    report = {
-        "scenario_id": scenario["scenario_id"],
-        "prompt_mode": args.prompt_mode,
-        "prediction_mode": args.prediction_mode,
-        "external_generation_config": _external_generation_config(args),
-        "prompt": prompt,
-        "prediction": prediction,
-        "evaluation": evaluation,
-    }
-    print(json.dumps(report, indent=2))
-    return 0
 
 
 def _get_prediction(
@@ -202,7 +225,7 @@ def _get_prediction(
     raise ValueError(f"unsupported prediction_mode: {prediction_mode}")
 
 
-def _external_generation_config(args: argparse.Namespace) -> dict[str, Any] | None:
+def external_generation_config_from_args(args: argparse.Namespace) -> dict[str, Any] | None:
     if args.prediction_mode != "external":
         return None
 

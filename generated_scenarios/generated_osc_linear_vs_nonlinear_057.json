@@ -1,6 +1,6 @@
 {
   "schema_version": "0.1",
-  "scenario_id": "generated_osc_nonlinear_vs_linear_001",
+  "scenario_id": "generated_osc_linear_vs_nonlinear_057",
   "domain": "damped_oscillator",
   "goal": {
     "type": "distinguish_hypotheses",
@@ -11,26 +11,28 @@
     "episodes": [
       {
         "episode_id": "obs_1",
-        "condition_id": "baseline_short_window",
+        "condition_id": "baseline_0p3s_20hz",
         "measured_channels": [
           "x"
         ],
         "time": [
           0.0,
+          0.05,
           0.1,
+          0.15000000000000002,
           0.2,
-          0.30000000000000004,
-          0.4,
-          0.5
+          0.25,
+          0.30000000000000004
         ],
         "values": {
           "x": [
             1.0,
-            0.99009880447168,
-            0.9609342411675427,
-            0.9136237509860766,
-            0.8496598698092541,
-            0.7708571919224889
+            1.0055862366596389,
+            1.0073630535977192,
+            1.0053646326965204,
+            0.9996390361929914,
+            0.9902522594606299,
+            0.9772878842308512
           ]
         },
         "noise_model": {
@@ -38,13 +40,13 @@
           "parameters": {}
         },
         "summary_stats": {
-          "window_duration": 0.5,
-          "sampling_rate": 10.0
+          "window_duration": 0.3,
+          "sampling_rate": 20.0
         },
         "metadata": {
           "initial_state": {
             "x": 1.0,
-            "v": 0.0
+            "v": 0.15
           }
         }
       }
@@ -56,7 +58,7 @@
       "hidden_channels": [
         "v"
       ],
-      "notes": "Baseline observation uses a short, position-only window."
+      "notes": "Baseline observation uses a limited, position-only window. The experimental initial state is recorded in episode metadata."
     }
   },
   "hypotheses": [
@@ -78,8 +80,8 @@
         ],
         "parameters": {
           "m": 1.0,
-          "c": 0.3,
-          "k": 2.0
+          "c": 0.38,
+          "k": 1.5
         },
         "equations": {
           "type": "symbolic_ode",
@@ -112,9 +114,9 @@
         ],
         "parameters": {
           "m": 1.0,
-          "c1": 0.24,
-          "c2": 0.08,
-          "k": 2.0
+          "c1": 0.2,
+          "c2": 0.18,
+          "k": 1.5
         },
         "equations": {
           "type": "symbolic_ode",
@@ -133,30 +135,30 @@
   "candidate_experiments": [
     {
       "experiment_id": "E1",
-      "name": "extend_window_by_2x",
-      "description": "Measure position over a window 2.0x the baseline duration using the same initial condition.",
+      "name": "extend_window_by_1p5x",
+      "description": "Measure position over a window 1.5x the baseline duration using the same initial condition.",
       "intervention_type": "measurement_change",
       "changes": {
         "time_window": {
           "start": 0.0,
-          "end": 1.0
+          "end": 0.44999999999999996
         }
       },
       "measurement_plan": {
         "channels": [
           "x"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 20.0,
         "time_window": {
           "start": 0.0,
-          "end": 1.0
+          "end": 0.44999999999999996
         },
         "metadata": {
           "experiment_family": "extend_observation_window",
           "parameterization": {
-            "window_ratio": 2.0,
-            "baseline_end_time": 0.5,
-            "end_time": 1.0
+            "window_ratio": 1.5,
+            "baseline_end_time": 0.3,
+            "end_time": 0.44999999999999996
           }
         }
       },
@@ -167,39 +169,39 @@
       "metadata": {
         "experiment_family": "extend_observation_window",
         "parameterization": {
-          "window_ratio": 2.0,
-          "baseline_end_time": 0.5,
-          "end_time": 1.0,
-          "sampling_rate": 10.0
+          "window_ratio": 1.5,
+          "baseline_end_time": 0.3,
+          "end_time": 0.44999999999999996,
+          "sampling_rate": 20.0
         }
       }
     },
     {
       "experiment_id": "E2",
-      "name": "extend_window_by_4x",
-      "description": "Measure position over a window 4.0x the baseline duration using the same initial condition.",
+      "name": "extend_window_by_2x",
+      "description": "Measure position over a window 2.0x the baseline duration using the same initial condition.",
       "intervention_type": "measurement_change",
       "changes": {
         "time_window": {
           "start": 0.0,
-          "end": 2.0
+          "end": 0.6
         }
       },
       "measurement_plan": {
         "channels": [
           "x"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 20.0,
         "time_window": {
           "start": 0.0,
-          "end": 2.0
+          "end": 0.6
         },
         "metadata": {
           "experiment_family": "extend_observation_window",
           "parameterization": {
-            "window_ratio": 4.0,
-            "baseline_end_time": 0.5,
-            "end_time": 2.0
+            "window_ratio": 2.0,
+            "baseline_end_time": 0.3,
+            "end_time": 0.6
           }
         }
       },
@@ -210,80 +212,37 @@
       "metadata": {
         "experiment_family": "extend_observation_window",
         "parameterization": {
-          "window_ratio": 4.0,
-          "baseline_end_time": 0.5,
-          "end_time": 2.0,
-          "sampling_rate": 10.0
+          "window_ratio": 2.0,
+          "baseline_end_time": 0.3,
+          "end_time": 0.6,
+          "sampling_rate": 20.0
         }
       }
     },
     {
       "experiment_id": "E3",
-      "name": "extend_window_by_6x",
-      "description": "Measure position over a window 6.0x the baseline duration using the same initial condition.",
-      "intervention_type": "measurement_change",
-      "changes": {
-        "time_window": {
-          "start": 0.0,
-          "end": 3.0
-        }
-      },
-      "measurement_plan": {
-        "channels": [
-          "x"
-        ],
-        "sampling_rate": 10.0,
-        "time_window": {
-          "start": 0.0,
-          "end": 3.0
-        },
-        "metadata": {
-          "experiment_family": "extend_observation_window",
-          "parameterization": {
-            "window_ratio": 6.0,
-            "baseline_end_time": 0.5,
-            "end_time": 3.0
-          }
-        }
-      },
-      "ambiguity_tags": [
-        "short_window"
-      ],
-      "cost": 1.4,
-      "metadata": {
-        "experiment_family": "extend_observation_window",
-        "parameterization": {
-          "window_ratio": 6.0,
-          "baseline_end_time": 0.5,
-          "end_time": 3.0,
-          "sampling_rate": 10.0
-        }
-      }
-    },
-    {
-      "experiment_id": "E4",
       "name": "increase_sampling_rate_by_2x",
       "description": "Measure position over the baseline window at 2.0x the baseline sampling rate.",
       "intervention_type": "measurement_change",
       "changes": {
-        "sampling_rate": 20.0
+        "sampling_rate": 40.0
       },
       "measurement_plan": {
         "channels": [
           "x"
         ],
-        "sampling_rate": 20.0,
+        "sampling_rate": 40.0,
         "time_window": {
           "start": 0.0,
-          "end": 0.5
+          "end": 0.3
         },
         "metadata": {
           "experiment_family": "increase_sampling_rate",
           "parameterization": {
             "sampling_rate_ratio": 2.0,
-            "baseline_sampling_rate": 10.0,
-            "sampling_rate": 20.0,
-            "baseline_duration": 0.5
+            "baseline_sampling_rate": 20.0,
+            "sampling_rate": 40.0,
+            "baseline_duration": 0.3
           }
         }
       },
@@ -295,57 +254,16 @@
         "experiment_family": "increase_sampling_rate",
         "parameterization": {
           "sampling_rate_ratio": 2.0,
-          "baseline_sampling_rate": 10.0,
-          "sampling_rate": 20.0,
-          "baseline_duration": 0.5
+          "baseline_sampling_rate": 20.0,
+          "sampling_rate": 40.0,
+          "baseline_duration": 0.3
         }
       }
     },
     {
-      "experiment_id": "E5",
+      "experiment_id": "E4",
       "name": "increase_sampling_rate_by_5x",
       "description": "Measure position over the baseline window at 5.0x the baseline sampling rate.",
-      "intervention_type": "measurement_change",
-      "changes": {
-        "sampling_rate": 50.0
-      },
-      "measurement_plan": {
-        "channels": [
-          "x"
-        ],
-        "sampling_rate": 50.0,
-        "time_window": {
-          "start": 0.0,
-          "end": 0.5
-        },
-        "metadata": {
-          "experiment_family": "increase_sampling_rate",
-          "parameterization": {
-            "sampling_rate_ratio": 5.0,
-            "baseline_sampling_rate": 10.0,
-            "sampling_rate": 50.0,
-            "baseline_duration": 0.5
-          }
-        }
-      },
-      "ambiguity_tags": [
-        "low_resolution"
-      ],
-      "cost": 1.2,
-      "metadata": {
-        "experiment_family": "increase_sampling_rate",
-        "parameterization": {
-          "sampling_rate_ratio": 5.0,
-          "baseline_sampling_rate": 10.0,
-          "sampling_rate": 50.0,
-          "baseline_duration": 0.5
-        }
-      }
-    },
-    {
-      "experiment_id": "E6",
-      "name": "increase_sampling_rate_by_10x",
-      "description": "Measure position over the baseline window at 10.0x the baseline sampling rate.",
       "intervention_type": "measurement_change",
       "changes": {
         "sampling_rate": 100.0
@@ -357,15 +275,56 @@
         "sampling_rate": 100.0,
         "time_window": {
           "start": 0.0,
-          "end": 0.5
+          "end": 0.3
+        },
+        "metadata": {
+          "experiment_family": "increase_sampling_rate",
+          "parameterization": {
+            "sampling_rate_ratio": 5.0,
+            "baseline_sampling_rate": 20.0,
+            "sampling_rate": 100.0,
+            "baseline_duration": 0.3
+          }
+        }
+      },
+      "ambiguity_tags": [
+        "low_resolution"
+      ],
+      "cost": 1.2,
+      "metadata": {
+        "experiment_family": "increase_sampling_rate",
+        "parameterization": {
+          "sampling_rate_ratio": 5.0,
+          "baseline_sampling_rate": 20.0,
+          "sampling_rate": 100.0,
+          "baseline_duration": 0.3
+        }
+      }
+    },
+    {
+      "experiment_id": "E5",
+      "name": "increase_sampling_rate_by_10x",
+      "description": "Measure position over the baseline window at 10.0x the baseline sampling rate.",
+      "intervention_type": "measurement_change",
+      "changes": {
+        "sampling_rate": 200.0
+      },
+      "measurement_plan": {
+        "channels": [
+          "x"
+        ],
+        "sampling_rate": 200.0,
+        "time_window": {
+          "start": 0.0,
+          "end": 0.3
         },
         "metadata": {
           "experiment_family": "increase_sampling_rate",
           "parameterization": {
             "sampling_rate_ratio": 10.0,
-            "baseline_sampling_rate": 10.0,
-            "sampling_rate": 100.0,
-            "baseline_duration": 0.5
+            "baseline_sampling_rate": 20.0,
+            "sampling_rate": 200.0,
+            "baseline_duration": 0.3
           }
         }
       },
@@ -377,58 +336,14 @@
         "experiment_family": "increase_sampling_rate",
         "parameterization": {
           "sampling_rate_ratio": 10.0,
-          "baseline_sampling_rate": 10.0,
-          "sampling_rate": 100.0,
-          "baseline_duration": 0.5
+          "baseline_sampling_rate": 20.0,
+          "sampling_rate": 200.0,
+          "baseline_duration": 0.3
         }
       }
     },
     {
-      "experiment_id": "E7",
-      "name": "measure_velocity_window_by_1x",
-      "description": "Measure velocity together with position over a window 1.0x the baseline duration.",
-      "intervention_type": "measurement_change",
-      "changes": {
-        "add_channels": [
-          "v"
-        ]
-      },
-      "measurement_plan": {
-        "channels": [
-          "x",
-          "v"
-        ],
-        "sampling_rate": 10.0,
-        "time_window": {
-          "start": 0.0,
-          "end": 0.5
-        },
-        "metadata": {
-          "experiment_family": "measure_velocity_channel",
-          "parameterization": {
-            "window_ratio": 1.0,
-            "baseline_end_time": 0.5,
-            "duration": 0.5,
-            "sampling_rate": 10.0
-          }
-        }
-      },
-      "ambiguity_tags": [
-        "hidden_variable"
-      ],
-      "cost": 1.5,
-      "metadata": {
-        "experiment_family": "measure_velocity_channel",
-        "parameterization": {
-          "window_ratio": 1.0,
-          "baseline_end_time": 0.5,
-          "duration": 0.5,
-          "sampling_rate": 10.0
-        }
-      }
-    },
-    {
-      "experiment_id": "E8",
+      "experiment_id": "E6",
       "name": "measure_velocity_window_by_2x",
       "description": "Measure velocity together with position over a window 2.0x the baseline duration.",
       "intervention_type": "measurement_change",
@@ -442,18 +357,62 @@
           "x",
           "v"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 20.0,
         "time_window": {
           "start": 0.0,
-          "end": 1.0
+          "end": 0.6
         },
         "metadata": {
           "experiment_family": "measure_velocity_channel",
           "parameterization": {
             "window_ratio": 2.0,
-            "baseline_end_time": 0.5,
-            "duration": 1.0,
-            "sampling_rate": 10.0
+            "baseline_end_time": 0.3,
+            "duration": 0.6,
+            "sampling_rate": 20.0
+          }
+        }
+      },
+      "ambiguity_tags": [
+        "hidden_variable"
+      ],
+      "cost": 1.5,
+      "metadata": {
+        "experiment_family": "measure_velocity_channel",
+        "parameterization": {
+          "window_ratio": 2.0,
+          "baseline_end_time": 0.3,
+          "duration": 0.6,
+          "sampling_rate": 20.0
+        }
+      }
+    },
+    {
+      "experiment_id": "E7",
+      "name": "measure_velocity_window_by_4x",
+      "description": "Measure velocity together with position over a window 4.0x the baseline duration.",
+      "intervention_type": "measurement_change",
+      "changes": {
+        "add_channels": [
+          "v"
+        ]
+      },
+      "measurement_plan": {
+        "channels": [
+          "x",
+          "v"
+        ],
+        "sampling_rate": 20.0,
+        "time_window": {
+          "start": 0.0,
+          "end": 1.2
+        },
+        "metadata": {
+          "experiment_family": "measure_velocity_channel",
+          "parameterization": {
+            "window_ratio": 4.0,
+            "baseline_end_time": 0.3,
+            "duration": 1.2,
+            "sampling_rate": 20.0
           }
         }
       },
@@ -464,15 +423,15 @@
       "metadata": {
         "experiment_family": "measure_velocity_channel",
         "parameterization": {
-          "window_ratio": 2.0,
-          "baseline_end_time": 0.5,
-          "duration": 1.0,
-          "sampling_rate": 10.0
+          "window_ratio": 4.0,
+          "baseline_end_time": 0.3,
+          "duration": 1.2,
+          "sampling_rate": 20.0
         }
       }
     },
     {
-      "experiment_id": "E9",
+      "experiment_id": "E8",
       "name": "increase_initial_velocity_by_1x_ref",
       "description": "Repeat the run with initial velocity 1.0x a reference excitation scale and observe position over 2.0x the baseline duration.",
       "intervention_type": "initial_condition_change",
@@ -486,10 +445,10 @@
         "channels": [
           "x"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 20.0,
         "time_window": {
           "start": 0.0,
-          "end": 1.0
+          "end": 0.6
         },
         "metadata": {
           "experiment_family": "increase_initial_velocity",
@@ -498,9 +457,9 @@
             "reference_initial_velocity": 0.75,
             "initial_velocity": 0.75,
             "window_ratio": 2.0,
-            "baseline_end_time": 0.5,
-            "duration": 1.0,
-            "sampling_rate": 10.0
+            "baseline_end_time": 0.3,
+            "duration": 0.6,
+            "sampling_rate": 20.0
           }
         }
       },
@@ -515,14 +474,14 @@
           "reference_initial_velocity": 0.75,
           "initial_velocity": 0.75,
           "window_ratio": 2.0,
-          "baseline_end_time": 0.5,
-          "duration": 1.0,
-          "sampling_rate": 10.0
+          "baseline_end_time": 0.3,
+          "duration": 0.6,
+          "sampling_rate": 20.0
         }
       }
     },
     {
-      "experiment_id": "E10",
+      "experiment_id": "E9",
       "name": "increase_initial_velocity_by_2x_ref",
       "description": "Repeat the run with initial velocity 2.0x a reference excitation scale and observe position over 2.0x the baseline duration.",
       "intervention_type": "initial_condition_change",
@@ -536,10 +495,10 @@
         "channels": [
           "x"
         ],
-        "sampling_rate": 10.0,
+        "sampling_rate": 20.0,
         "time_window": {
           "start": 0.0,
-          "end": 1.0
+          "end": 0.6
         },
         "metadata": {
           "experiment_family": "increase_initial_velocity",
@@ -548,9 +507,9 @@
             "reference_initial_velocity": 0.75,
             "initial_velocity": 1.5,
             "window_ratio": 2.0,
-            "baseline_end_time": 0.5,
-            "duration": 1.0,
-            "sampling_rate": 10.0
+            "baseline_end_time": 0.3,
+            "duration": 0.6,
+            "sampling_rate": 20.0
           }
         }
       },
@@ -565,9 +524,9 @@
           "reference_initial_velocity": 0.75,
           "initial_velocity": 1.5,
           "window_ratio": 2.0,
-          "baseline_end_time": 0.5,
-          "duration": 1.0,
-          "sampling_rate": 10.0
+          "baseline_end_time": 0.3,
+          "duration": 0.6,
+          "sampling_rate": 20.0
         }
       }
     }
@@ -579,40 +538,41 @@
       "H1"
     ],
     "rejected_hypotheses": [],
-    "ambiguity_type": "short_window",
+    "ambiguity_type": "hidden_variable",
     "criterion": {
       "type": "fit_score_band",
-      "threshold": 0.01,
+      "threshold": 0.005,
       "parameters": {
         "best_score": 0.0,
         "score_type": "mse"
       }
     },
-    "explanation": "Multiple hypotheses remain compatible with the current observations. The kept hypotheses (weak_nonlinear_damping, linear_damping) all fall within 0.01 of the best fit score 0.000000."
+    "explanation": "Multiple hypotheses remain compatible with the current observations. The kept hypotheses (weak_nonlinear_damping, linear_damping) all fall within 0.005 of the best fit score 0.000000."
   },
   "ground_truth": {
     "true_hypothesis_id": "H2",
-    "best_experiment_id": "E3",
+    "best_experiment_id": "E7",
     "experiment_utilities": {
-      "E3": 0.00778226612223954,
-      "E2": 0.005326369385187433,
-      "E10": 0.003286093705806711,
-      "E8": 0.0019416982006662188,
-      "E7": 0.0009477375529092757,
-      "E1": 0.0005054012204399252,
-      "E9": 0.00044108535344819256,
-      "E4": 0.00029807712610203046,
-      "E5": 0.0002901794238315099,
-      "E6": 0.0002874936813808845
+      "E7": 0.0076343191222462085,
+      "E6": 0.002914946134984588,
+      "E9": 0.0024481255836516546,
+      "E8": 0.0020954539086727943,
+      "E2": 0.000640056596663159,
+      "E1": 0.00021489289284667423,
+      "E5": 8.162532099407605e-05,
+      "E4": 8.042907036858745e-05,
+      "E3": 7.68158065240349e-05
     },
     "utility_score_type": "pairwise_average_disagreement",
     "explanation": "Generated by the oscillator backend oracle using pairwise disagreement over simulated candidate experiment responses."
   },
   "metadata": {
     "generator": "build_oscillator_scenarios.py",
-    "seed": 0,
-    "difficulty": "medium",
-    "source": "programmatic",
-    "notes": "Generated short-window ambiguity scenario for nonlinear vs linear damping."
+    "seed": 7,
+    "difficulty": "hard",
+    "source": "programmatic_sampled",
+    "notes": "Sampled oscillator scenario with pair_type=linear_vs_nonlinear, library_style=velocity.",
+    "pair_type": "linear_vs_nonlinear",
+    "candidate_library_style": "velocity"
   }
 }

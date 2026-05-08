@@ -753,6 +753,58 @@ and `--external-thinking` are sent only to the `vllm` provider. For Qwen-style
 reasoning output, serve vLLM with the matching reasoning parser when supported by
 your installed vLLM version.
 
+### Batch Evaluation
+
+Use [agents/run_batch_baseline.py](D:/science_agent/Proposer/agents/run_batch_baseline.py:1)
+to run the same baseline over many scenario files and write one JSON result per
+line:
+
+```powershell
+python agents/run_batch_baseline.py --scenario-glob "generated_scenarios/*.json" --output-jsonl results/qwen_contrast.jsonl --prompt-mode contrast --prediction-mode external --external-provider vllm --external-model Qwen/Qwen3.6-35B-A3B --external-base-url http://localhost:8000/v1/chat/completions --external-temperature 1.0 --external-top-p 0.95 --external-top-k 20 --external-max-tokens 4096 --external-thinking on --external-timeout-sec 180 --continue-on-error
+```
+
+For a quick local smoke test without a model server:
+
+```powershell
+python agents/run_batch_baseline.py --scenario-glob "generated_scenarios/*.json" --output-jsonl results/heuristic.jsonl --prompt-mode contrast --prediction-mode heuristic
+```
+
+The printed summary reports aggregate accuracy, regret, utility ratio, and
+near-optimal rates across successful rows.
+
+The external parser accepts strict JSON as well as common local-model variants
+such as fenced JSON, Python-style dictionaries with single quotes, and lowercase
+`true` / `false` / `null` values. If parsing still fails, batch error rows include
+a short raw-output preview for debugging.
+
+The prompt renderer supports three modes:
+
+- `plain`: direct ambiguity and experiment-choice instructions
+- `contrast`: asks the model to contrast surviving hypotheses before choosing
+- `compare`: asks the model to compare each candidate experiment with rough estimates of channel capture, accumulation duration, excitation strength, and expected total separation before choosing
+
+Example compare-mode run:
+
+```powershell
+python agents/run_batch_baseline.py --scenario-glob "generated_scenarios/*.json" --output-jsonl results/qwen_compare_thinking.jsonl --prompt-mode compare --prediction-mode external --external-provider vllm --external-model Qwen/Qwen3.6-35B-A3B --external-base-url http://localhost:8000/v1/chat/completions --external-temperature 1.0 --external-top-p 0.95 --external-top-k 20 --external-max-tokens 4096 --external-thinking on --external-timeout-sec 180 --continue-on-error
+```
+
+### Scenario Generation
+
+Use [generation/build_oscillator_scenarios.py](D:/science_agent/Proposer/generation/build_oscillator_scenarios.py:1)
+to generate a filtered batch of damped-oscillator scenarios:
+
+```powershell
+python generation/build_oscillator_scenarios.py --num-scenarios 20 --seed 7 --output-dir generated_scenarios --clear-output
+```
+
+The generator samples oscillator hypothesis pairs, baseline windows, sampling
+rates, initial conditions, and candidate experiment libraries. It keeps only
+scenarios that remain ambiguous under the current observations and have a usable
+oracle utility ranking. The current generated batch includes oracle-best
+experiments from multiple intervention families, including extended observation
+windows, velocity-channel measurements, and increased initial velocity.
+
 ### Manual `from-file` Workflow
 
 To export a prompt and a prediction template for manual model use:
@@ -766,6 +818,20 @@ Then evaluate a filled template with:
 ```powershell
 python agents/run_llm_baseline.py generated_scenarios/generated_osc_nonlinear_vs_linear_001.json --prediction-mode from-file --prediction-file prediction.json
 ```
+
+### Evaluation Metrics
+
+The evaluator reports strict correctness plus utility-aware near-miss metrics.
+
+- `chosen_experiment_correct`: whether the predicted experiment exactly matches the oracle-best experiment.
+- `predicted_experiment_valid`: whether the predicted experiment id appears in the candidate set.
+- `predicted_experiment_utility`: oracle utility assigned to the predicted experiment. Invalid predictions receive the worst candidate utility.
+- `oracle_best_utility`: utility of the oracle-best experiment.
+- `raw_utility_regret`: `oracle_best_utility - predicted_experiment_utility`.
+- `normalized_utility_regret`: regret divided by the utility range between the oracle-best and worst candidates. Lower is better.
+- `utility_ratio`: `predicted_experiment_utility / oracle_best_utility`. Higher is better.
+- `near_optimal_at_0_8`: whether the predicted experiment reaches at least 80% of oracle-best utility.
+- `near_optimal_at_0_5`: whether the predicted experiment reaches at least 50% of oracle-best utility.
 
 ## Next Suggested Additions
 
