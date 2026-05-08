@@ -1,5 +1,17 @@
 # Project Progress
 
+## 2026-05-08
+
+### Completed
+
+- Aligned the no-simulator prompt wording with the current disagreement-based oracle.
+- Updated [prompting/render_prompt.py](D:/science_agent/Proposer/prompting/render_prompt.py:1) so both `plain` and `contrast` modes ask for the experiment expected to produce the largest hypothesis separation, rather than the smallest discriminating experiment.
+- Updated the oscillator scenario generator goal text in [generation/build_oscillator_scenarios.py](D:/science_agent/Proposer/generation/build_oscillator_scenarios.py:1).
+- Regenerated the two files in [generated_scenarios](D:/science_agent/Proposer/generated_scenarios:1) so their visible `goal.success_criterion` matches the current oracle.
+- Updated the illustrative example and README goal text to match the current max-separation benchmark setting.
+- Added external generation controls to [agents/run_llm_baseline.py](D:/science_agent/Proposer/agents/run_llm_baseline.py:1) and [agents/external_model.py](D:/science_agent/Proposer/agents/external_model.py:1), including temperature, top-p, top-k, max tokens, and vLLM/Qwen-style thinking flags.
+- Updated [README.md](D:/science_agent/Proposer/README.md:1) with an example command for running Qwen-style thinking models through vLLM.
+
 ## 2026-05-05
 
 ### Completed

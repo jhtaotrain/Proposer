@@ -14,6 +14,11 @@ def get_external_prediction(
     base_url: str | None = None,
     api_key_env: str = "OPENAI_API_KEY",
     timeout_sec: float = 60.0,
+    temperature: float = 0.0,
+    top_p: float | None = None,
+    top_k: int | None = None,
+    max_tokens: int | None = None,
+    thinking: str = "default",
 ) -> dict[str, Any]:
     if provider == "openai":
         return _call_openai_chat_completions(
@@ -24,6 +29,12 @@ def get_external_prediction(
             timeout_sec=timeout_sec,
             use_json_response_format=True,
             require_api_key=True,
+            allow_vllm_extras=False,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            max_tokens=max_tokens,
+            thinking=thinking,
         )
 
     if provider == "vllm":
@@ -35,6 +46,12 @@ def get_external_prediction(
             timeout_sec=timeout_sec,
             use_json_response_format=False,
             require_api_key=False,
+            allow_vllm_extras=True,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+            max_tokens=max_tokens,
+            thinking=thinking,
         )
 
     raise ValueError(f"unsupported external provider: {provider}")
@@ -49,6 +66,12 @@ def _call_openai_chat_completions(
     timeout_sec: float,
     use_json_response_format: bool,
     require_api_key: bool,
+    allow_vllm_extras: bool,
+    temperature: float,
+    top_p: float | None,
+    top_k: int | None,
+    max_tokens: int | None,
+    thinking: str,
 ) -> dict[str, Any]:
     api_key = os.environ.get(api_key_env)
     if require_api_key and not api_key:
@@ -56,7 +79,7 @@ def _call_openai_chat_completions(
 
     payload: dict[str, Any] = {
         "model": model,
-        "temperature": 0,
+        "temperature": temperature,
         "messages": [
             {
                 "role": "system",
@@ -68,8 +91,19 @@ def _call_openai_chat_completions(
             {"role": "user", "content": prompt},
         ],
     }
+    if top_p is not None:
+        payload["top_p"] = top_p
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
     if use_json_response_format:
         payload["response_format"] = {"type": "json_object"}
+    if allow_vllm_extras:
+        if top_k is not None:
+            payload["top_k"] = top_k
+        if thinking != "default":
+            payload["chat_template_kwargs"] = {
+                "enable_thinking": thinking == "on",
+            }
 
     headers = {"Content-Type": "application/json"}
     if api_key:

@@ -180,7 +180,7 @@ def _common_goal() -> dict[str, Any]:
     return {
         "type": "distinguish_hypotheses",
         "description": "Determine which mechanism best explains the current damped-oscillator observations.",
-        "success_criterion": "Choose the smallest next experiment that best separates the remaining plausible hypotheses.",
+        "success_criterion": "Choose the candidate experiment expected to produce the largest separation between the remaining plausible hypotheses.",
     }
 
 

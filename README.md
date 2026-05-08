@@ -70,7 +70,7 @@ Describes what the agent is trying to achieve in this scenario.
 "goal": {
   "type": "distinguish_hypotheses",
   "description": "Determine which damping mechanism best explains the observed trajectory.",
-  "success_criterion": "Select the smallest experiment that most clearly separates the remaining plausible hypotheses."
+  "success_criterion": "Select the candidate experiment expected to produce the largest separation between the remaining plausible hypotheses."
 }
 ```
 
@@ -741,6 +741,17 @@ Example with vLLM:
 ```powershell
 python agents/run_llm_baseline.py generated_scenarios/generated_osc_nonlinear_vs_linear_001.json --prediction-mode external --external-provider vllm --external-model your-model-name --external-base-url http://localhost:8000/v1/chat/completions
 ```
+
+Example with a Qwen-style thinking model served through vLLM:
+
+```powershell
+python agents/run_llm_baseline.py generated_scenarios/generated_osc_nonlinear_vs_linear_001.json --prompt-mode contrast --prediction-mode external --external-provider vllm --external-model Qwen/Qwen3.6-35B-A3B --external-base-url http://localhost:8000/v1/chat/completions --external-temperature 1.0 --external-top-p 0.95 --external-top-k 20 --external-max-tokens 4096 --external-thinking on --external-timeout-sec 180
+```
+
+The extra sampling controls are useful for local reasoning models. `--external-top-k`
+and `--external-thinking` are sent only to the `vllm` provider. For Qwen-style
+reasoning output, serve vLLM with the matching reasoning parser when supported by
+your installed vLLM version.
 
 ### Manual `from-file` Workflow
 

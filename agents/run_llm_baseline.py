@@ -79,6 +79,39 @@ def main() -> int:
         default=60.0,
         help="HTTP timeout in seconds for external model calls.",
     )
+    parser.add_argument(
+        "--external-temperature",
+        type=float,
+        default=0.0,
+        help="Sampling temperature for external model calls.",
+    )
+    parser.add_argument(
+        "--external-top-p",
+        type=float,
+        default=None,
+        help="Optional nucleus sampling top-p value for external model calls.",
+    )
+    parser.add_argument(
+        "--external-top-k",
+        type=int,
+        default=None,
+        help="Optional top-k value. Sent only to vLLM-style providers.",
+    )
+    parser.add_argument(
+        "--external-max-tokens",
+        type=int,
+        default=None,
+        help="Optional maximum number of generated tokens for external model calls.",
+    )
+    parser.add_argument(
+        "--external-thinking",
+        default="default",
+        choices=["default", "on", "off"],
+        help=(
+            "Optional Qwen-style thinking control for vLLM chat templates. "
+            "Use 'on' to pass enable_thinking=true and 'off' for false."
+        ),
+    )
     args = parser.parse_args()
 
     scenario_path = Path(args.scenario_path)
@@ -104,6 +137,11 @@ def main() -> int:
         external_base_url=args.external_base_url,
         external_api_key_env=args.external_api_key_env,
         external_timeout_sec=args.external_timeout_sec,
+        external_temperature=args.external_temperature,
+        external_top_p=args.external_top_p,
+        external_top_k=args.external_top_k,
+        external_max_tokens=args.external_max_tokens,
+        external_thinking=args.external_thinking,
     )
     evaluation = compare_prediction_to_oracle(scenario=scenario, prediction=prediction)
 
@@ -111,6 +149,7 @@ def main() -> int:
         "scenario_id": scenario["scenario_id"],
         "prompt_mode": args.prompt_mode,
         "prediction_mode": args.prediction_mode,
+        "external_generation_config": _external_generation_config(args),
         "prompt": prompt,
         "prediction": prediction,
         "evaluation": evaluation,
@@ -130,6 +169,11 @@ def _get_prediction(
     external_base_url: str | None,
     external_api_key_env: str,
     external_timeout_sec: float,
+    external_temperature: float,
+    external_top_p: float | None,
+    external_top_k: int | None,
+    external_max_tokens: int | None,
+    external_thinking: str,
 ) -> dict[str, Any]:
     if prediction_mode == "heuristic":
         return _heuristic_prediction(scenario)
@@ -148,9 +192,31 @@ def _get_prediction(
             base_url=external_base_url,
             api_key_env=external_api_key_env,
             timeout_sec=external_timeout_sec,
+            temperature=external_temperature,
+            top_p=external_top_p,
+            top_k=external_top_k,
+            max_tokens=external_max_tokens,
+            thinking=external_thinking,
         )
 
     raise ValueError(f"unsupported prediction_mode: {prediction_mode}")
+
+
+def _external_generation_config(args: argparse.Namespace) -> dict[str, Any] | None:
+    if args.prediction_mode != "external":
+        return None
+
+    return {
+        "provider": args.external_provider,
+        "model": args.external_model,
+        "base_url": args.external_base_url,
+        "temperature": args.external_temperature,
+        "top_p": args.external_top_p,
+        "top_k": args.external_top_k,
+        "max_tokens": args.external_max_tokens,
+        "thinking": args.external_thinking,
+        "timeout_sec": args.external_timeout_sec,
+    }
 
 
 def build_prediction_template(scenario: dict[str, Any]) -> dict[str, Any]:

@@ -65,7 +65,7 @@ def _render_plain_prompt(scenario: dict[str, Any]) -> str:
             "Decide whether the current evidence is still ambiguous.",
             "If it is ambiguous, identify which hypotheses remain plausible.",
             "Choose the single best next experiment from the candidate list.",
-            "Prefer the smallest experiment that most clearly distinguishes the remaining hypotheses.",
+            "Prefer the experiment expected to produce the largest separation between the remaining hypotheses.",
         ],
         "output_format": {
             "is_ambiguous": "boolean",
@@ -94,7 +94,7 @@ def _render_contrast_prompt(scenario: dict[str, Any]) -> str:
         "task": [
             "First identify which parts of the current observations are explained by multiple hypotheses.",
             "Then explain what difference each candidate experiment would amplify.",
-            "Then choose the minimal discriminating experiment.",
+            "Then choose the experiment expected to produce the largest separation between the remaining hypotheses.",
         ],
         "required_reasoning_steps": [
             "State why the current evidence may still be unresolved.",
