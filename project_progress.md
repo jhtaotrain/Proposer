@@ -1,5 +1,82 @@
 # Project Progress
 
+## 2026-05-09
+
+### Completed
+
+- Added a dependency-free stderr progress bar to [agents/run_batch_baseline.py](D:/science_agent/Proposer/agents/run_batch_baseline.py:1), including current scenario, completed count, and ok/error counts.
+- Added `--no-progress` for quiet batch runs while preserving one-flushed-JSONL-row-per-scenario output.
+- Tightened the external model system prompt in [agents/external_model.py](D:/science_agent/Proposer/agents/external_model.py:1) so external providers are explicitly asked to return only the prediction JSON object without markdown, commentary, or analysis.
+- Updated `compare` prompt mode in [prompting/render_prompt.py](D:/science_agent/Proposer/prompting/render_prompt.py:1) so the candidate comparison stays internal and the visible output matches the evaluator contract: `is_ambiguous`, `compatible_hypotheses`, `chosen_experiment_id`, and `reasoning`.
+- Removed the bulky `candidate_comparison` output field from the `compare` prompt because the evaluator does not consume it and it encouraged long, fragile local-model outputs.
+- Refined `compare` guidance so excitation is helpful only if it increases measured trajectory disagreement more than a longer measurement window or added channel would.
+- Confirmed the original `compare` run stopped after 30/100 rows; the batch runner itself had no 30-row cap.
+- Reran Qwen/Qwen3.6-35B-A3B `compare` with `temperature=0`, `max_tokens=2048`, and `thinking=off` before the prompt refinement:
+  - output: `results/qwen_compare_rerun_thinking_off.jsonl`
+  - 100 ok, 0 errors
+  - exact: 0.15
+  - utility ratio: 0.528
+  - normalized regret: 0.520
+  - near-optimal@0.8: 0.24
+  - near-optimal@0.5: 0.47
+- Diagnosed that pre-refinement `compare` over-selected `increase_initial_velocity`:
+  - oracle best families: 45 velocity-channel, 34 extended-window, 21 initial-velocity
+  - model predictions: 66 initial-velocity, 33 velocity-channel, 1 extended-window
+- Reran the refined `compare` prompt with the same controlled settings:
+  - output: `results/qwen_compare_fixed_thinking_off.jsonl`
+  - 100 ok, 0 errors
+  - exact: 0.27
+  - utility ratio: 0.637
+  - normalized regret: 0.404
+  - near-optimal@0.8: 0.35
+  - near-optimal@0.5: 0.61
+- Reran `contrast` with the same controlled settings for an apples-to-apples comparison:
+  - output: `results/qwen_contrast_thinking_off.jsonl`
+  - 100 ok, 0 errors
+  - exact: 0.06
+  - utility ratio: 0.447
+  - normalized regret: 0.611
+  - near-optimal@0.8: 0.13
+  - near-optimal@0.5: 0.37
+- Compared controlled `compare` versus controlled `contrast` and found `compare` higher on utility ratio in 52 scenarios, `contrast` higher in 6, and 42 rough ties.
+- Observed that the refined `compare` prompt fixed the strongest initial-velocity bias but shifted toward velocity-channel measurements:
+  - model predictions: 58 velocity-channel, 42 initial-velocity, 0 extended-window
+  - remaining failure surface: extended-window oracle cases still receive 0 exact matches.
+- Added tagged thinking-output support in [agents/external_model.py](D:/science_agent/Proposer/agents/external_model.py:1): vLLM runs with `--external-thinking on` now ask the model to put reasoning in `<think>...</think>` and the final prediction JSON in `<answer>...</answer>`.
+- Updated the external parser to prefer JSON found inside the last `<answer>...</answer>` block, then fall back to the existing object-extraction parser for older/raw JSON outputs.
+- Updated [README.md](D:/science_agent/Proposer/README.md:1) with progress-bar behavior, strict JSON guidance for Qwen/vLLM runs, tagged `<think>` / `<answer>` thinking-on parsing, controlled run commands, latest metrics, and the remaining family-bias diagnosis.
+- Verified tagged parsing with local parser checks and a live Qwen/Qwen3.6-35B-A3B `--external-thinking on` smoke test on `generated_osc_linear_parameter_pair_012`, which parsed successfully and selected the oracle-best `E3`.
+- Inspected the full tagged thinking-on `compare` batch:
+  - output: `results/qwen_compare_thinking_tagged.jsonl`
+  - 76 ok, 24 errors
+  - exact: 0.579 on successful rows
+  - utility ratio: 0.783 on successful rows
+  - normalized regret: 0.246 on successful rows
+  - near-optimal@0.8: 0.618 on successful rows
+  - near-optimal@0.5: 0.763 on successful rows
+  - on the 76 shared successful scenarios, tagged thinking-on outperformed fixed thinking-off compare (`utility_ratio=0.783` vs `0.623`)
+  - remaining issue: parse failures still show no `<answer>` tag in the saved preview, so the model often spends too long in free reasoning before reaching the final tagged JSON.
+- Reran only the 24 failed tagged thinking-on `compare` scenarios with `--external-max-tokens 8192`:
+  - output: `results/qwen_compare_thinking_tagged_failed_8192.jsonl`
+  - 24 ok, 0 errors
+  - exact: 0.542
+  - utility ratio: 0.831
+  - normalized regret: 0.187
+  - near-optimal@0.8: 0.75
+  - near-optimal@0.5: 0.833
+- Merged the original 76 successful tagged rows with the 24 successful 8192-token retries for an effective 100-scenario tagged thinking-on `compare` result:
+  - exact: 0.57
+  - utility ratio: 0.795
+  - normalized regret: 0.232
+  - near-optimal@0.8: 0.65
+  - near-optimal@0.5: 0.78
+  - predicted families: 42 initial-velocity, 37 extended-window, 21 velocity-channel
+
+### Next Suggested Step
+
+- Add a small analysis script for result JSONL files so family-distribution diagnostics and prompt-mode comparisons are reproducible instead of one-off shell snippets.
+- Refine `compare` further to make extended observation windows competitive when the discriminating signal accumulates slowly over time.
+
 ## 2026-05-08
 
 ### Completed
@@ -97,4 +174,4 @@ The current simulator supports:
 
 ### Next Suggested Step
 
-- Run Qwen with `contrast` versus `compare` prompt modes on the 100-scenario batch, then inspect exact accuracy, utility regret, and near-optimal rates.
+- Completed on 2026-05-09. The next step is to turn the ad hoc result-slicing analysis into a reusable script and continue addressing the extended-window under-selection bias.

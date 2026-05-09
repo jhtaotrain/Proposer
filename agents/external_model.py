@@ -98,9 +98,8 @@ def _call_openai_chat_completions(
         "messages": [
             {
                 "role": "system",
-                "content": (
-                    "Return only a valid JSON object with keys "
-                    "is_ambiguous, compatible_hypotheses, chosen_experiment_id, reasoning."
+                "content": _system_prompt_for_external_model(
+                    allow_tagged_reasoning=allow_vllm_extras and thinking == "on",
                 ),
             },
             {"role": "user", "content": prompt},
@@ -134,6 +133,24 @@ def _call_openai_chat_completions(
     return _parse_prediction_text(content)
 
 
+def _system_prompt_for_external_model(*, allow_tagged_reasoning: bool) -> str:
+    if allow_tagged_reasoning:
+        return (
+            "You may reason inside <think>...</think>. Put the final prediction JSON "
+            "inside <answer>...</answer>. The <answer> block must contain only one "
+            "valid JSON object with keys is_ambiguous, compatible_hypotheses, "
+            "chosen_experiment_id, reasoning. Do not include markdown or commentary "
+            "inside <answer>. If other instructions ask for JSON only, satisfy them "
+            "inside the <answer> block."
+        )
+
+    return (
+        "Return only a valid JSON object with keys "
+        "is_ambiguous, compatible_hypotheses, chosen_experiment_id, reasoning. "
+        "Do not include markdown, commentary, or analysis outside the JSON object."
+    )
+
+
 def _post_json(
     *,
     url: str,
@@ -161,8 +178,13 @@ def _post_json(
 def _parse_prediction_text(text: str) -> dict[str, Any]:
     stripped = _strip_code_fences(text.strip())
     errors = []
+    answer_text = _extract_tagged_answer(stripped)
+    candidates = []
+    if answer_text is not None:
+        candidates.extend(_prediction_object_candidates(answer_text))
+    candidates.extend(_prediction_object_candidates(stripped))
 
-    for candidate in _prediction_object_candidates(stripped):
+    for candidate in _dedupe_candidates(candidates):
         try:
             parsed = _parse_object_candidate(candidate)
         except (ValueError, SyntaxError) as exc:
@@ -179,6 +201,16 @@ def _parse_prediction_text(text: str) -> dict[str, Any]:
     )
 
 
+def _extract_tagged_answer(text: str) -> str | None:
+    start_tag = "<answer>"
+    end_tag = "</answer>"
+    start = text.rfind(start_tag)
+    end = text.rfind(end_tag)
+    if start == -1 or end == -1 or end <= start:
+        return None
+    return text[start + len(start_tag) : end].strip()
+
+
 def _strip_code_fences(text: str) -> str:
     lines = text.splitlines()
     if not lines:
@@ -193,7 +225,10 @@ def _strip_code_fences(text: str) -> str:
 def _prediction_object_candidates(text: str) -> list[str]:
     candidates = [text]
     candidates.extend(_extract_balanced_object_candidates(text))
+    return _dedupe_candidates(candidates)
 
+
+def _dedupe_candidates(candidates: list[str]) -> list[str]:
     deduped = []
     seen = set()
     for candidate in candidates:

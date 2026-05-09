@@ -125,29 +125,21 @@ def _render_compare_prompt(scenario: dict[str, Any]) -> str:
         "task": [
             "Decide whether the current evidence is still ambiguous.",
             "If it is ambiguous, identify which hypotheses remain plausible.",
-            "Compare every candidate experiment before choosing.",
+            "Compare every candidate experiment before choosing, but keep that comparison internal.",
             "Choose the experiment expected to produce the largest accumulated separation in the measured response.",
         ],
         "candidate_comparison_guidance": [
             "For each candidate, estimate what hypothesis difference it probes.",
             "Estimate whether the planned measured channels capture that difference.",
             "Estimate how long the difference can accumulate over the proposed measurement window.",
-            "Estimate whether the intervention increases mechanism-relevant excitation.",
+            "Estimate whether the intervention increases mechanism-relevant excitation, but treat excitation as helpful only when it increases the measured response disagreement more than a longer window or added channel would.",
+            "Prefer the experiment with the largest expected measured trajectory separation integrated over all measured channels and time points.",
+            "Do not choose higher excitation merely because it targets the mechanism; compare it against accumulation duration and channel coverage.",
             "Use qualitative or rough quantitative estimates only; do not assume hidden simulator outputs or oracle scores.",
         ],
         "output_format": {
             "is_ambiguous": "boolean",
             "compatible_hypotheses": ["hypothesis_id"],
-            "candidate_comparison": [
-                {
-                    "experiment_id": "experiment_id",
-                    "probed_difference": "short phrase",
-                    "channel_capture": "low | medium | high",
-                    "accumulation_duration": "short | medium | long",
-                    "excitation_strength": "low | medium | high",
-                    "expected_total_separation": "low | medium | high",
-                }
-            ],
             "chosen_experiment_id": "experiment_id or null",
             "reasoning": "short explanation comparing the chosen experiment against the strongest alternatives",
         },
@@ -156,6 +148,7 @@ def _render_compare_prompt(scenario: dict[str, Any]) -> str:
             "Do not assume access to a simulator or hidden oracle scores.",
             "If the evidence is not ambiguous, set chosen_experiment_id to null.",
             "The final chosen_experiment_id must be one of the provided candidate experiment ids, or null if not ambiguous.",
+            "Return only the JSON object described by output_format.",
         ],
     }
     return (

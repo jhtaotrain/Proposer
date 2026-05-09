@@ -48,8 +48,19 @@ def main() -> int:
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     rows = []
+    ok_count = 0
+    error_count = 0
+    progress = _ProgressPrinter(enabled=args.progress, total=len(scenario_paths))
     with output_path.open("w", encoding="utf-8") as handle:
         for index, scenario_path in enumerate(scenario_paths, start=1):
+            progress.update(
+                completed=index - 1,
+                ok_count=ok_count,
+                error_count=error_count,
+                status="running",
+                scenario_path=scenario_path,
+                current_index=index,
+            )
             row = _run_one_scenario(
                 scenario_path=scenario_path,
                 args=args,
@@ -59,11 +70,25 @@ def main() -> int:
             rows.append(row)
             handle.write(json.dumps(row) + "\n")
             handle.flush()
+            if row["status"] == "ok":
+                ok_count += 1
+            elif row["status"] == "error":
+                error_count += 1
+            progress.update(
+                completed=index,
+                ok_count=ok_count,
+                error_count=error_count,
+                status=row["status"],
+                scenario_path=scenario_path,
+                current_index=index,
+            )
 
             if row["status"] == "error" and not args.continue_on_error:
+                progress.finish()
                 raise RuntimeError(
                     f"failed on {scenario_path}: {row.get('error_type')}: {row.get('error')}"
                 )
+    progress.finish()
 
     summary = _build_summary(
         rows=rows,
@@ -93,6 +118,13 @@ def _add_batch_arguments(
         action="store_true",
         help="Record per-scenario errors and continue instead of stopping the batch.",
     )
+    parser.add_argument(
+        "--no-progress",
+        action="store_false",
+        dest="progress",
+        help="Disable the stderr progress bar.",
+    )
+    parser.set_defaults(progress=True)
 
     for action in parser._actions:
         if action.dest in {"prediction_file", "write_prediction_template", "write_prompt"}:
@@ -105,6 +137,72 @@ def _resolve_scenario_paths(pattern: str) -> list[Path]:
         for path in sorted(glob.glob(pattern))
         if Path(path).is_file()
     ]
+
+
+class _ProgressPrinter:
+    def __init__(
+        self,
+        *,
+        enabled: bool,
+        total: int,
+        bar_width: int = 28,
+    ) -> None:
+        self.enabled = enabled
+        self.total = total
+        self.bar_width = bar_width
+        self.last_line_length = 0
+
+    def update(
+        self,
+        *,
+        completed: int,
+        ok_count: int,
+        error_count: int,
+        status: str,
+        scenario_path: Path,
+        current_index: int,
+    ) -> None:
+        if not self.enabled:
+            return
+
+        line = self._format_line(
+            completed=completed,
+            ok_count=ok_count,
+            error_count=error_count,
+            status=status,
+            scenario_path=scenario_path,
+            current_index=current_index,
+        )
+        padding = " " * max(0, self.last_line_length - len(line))
+        print(f"\r{line}{padding}", end="", file=sys.stderr, flush=True)
+        self.last_line_length = len(line)
+
+    def finish(self) -> None:
+        if not self.enabled or self.last_line_length == 0:
+            return
+        print(file=sys.stderr, flush=True)
+        self.last_line_length = 0
+
+    def _format_line(
+        self,
+        *,
+        completed: int,
+        ok_count: int,
+        error_count: int,
+        status: str,
+        scenario_path: Path,
+        current_index: int,
+    ) -> str:
+        ratio = completed / self.total if self.total else 0.0
+        filled = round(self.bar_width * ratio)
+        bar = "#" * filled + "-" * (self.bar_width - filled)
+        percent = ratio * 100.0
+        current = scenario_path.as_posix()
+        return (
+            f"{status} {current_index}/{self.total} {current} | "
+            f"[{bar}] {completed}/{self.total} {percent:5.1f}% "
+            f"ok={ok_count} err={error_count}"
+        )
 
 
 def _run_one_scenario(

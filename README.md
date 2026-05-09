@@ -750,8 +750,12 @@ python agents/run_llm_baseline.py generated_scenarios/generated_osc_nonlinear_vs
 
 The extra sampling controls are useful for local reasoning models. `--external-top-k`
 and `--external-thinking` are sent only to the `vllm` provider. For Qwen-style
-reasoning output, serve vLLM with the matching reasoning parser when supported by
-your installed vLLM version.
+reasoning output, runs with `--external-thinking on` ask the model to write
+free reasoning inside `<think>...</think>` and the final prediction JSON inside
+`<answer>...</answer>`. The parser prefers the JSON inside the final
+`<answer>` block and then falls back to the older object-extraction parser. For
+strict JSON evaluation without explicit reasoning text, `--external-thinking off`
+is still the most reliable setting.
 
 ### Batch Evaluation
 
@@ -762,6 +766,11 @@ line:
 ```powershell
 python agents/run_batch_baseline.py --scenario-glob "generated_scenarios/*.json" --output-jsonl results/qwen_contrast.jsonl --prompt-mode contrast --prediction-mode external --external-provider vllm --external-model Qwen/Qwen3.6-35B-A3B --external-base-url http://localhost:8000/v1/chat/completions --external-temperature 1.0 --external-top-p 0.95 --external-top-k 20 --external-max-tokens 4096 --external-thinking on --external-timeout-sec 180 --continue-on-error
 ```
+
+The batch runner prints a stderr progress bar by default, including the current
+scenario, completed count, and ok/error counts. Use `--no-progress` to disable
+it. JSONL rows are flushed after each scenario, so an interrupted run can be
+inspected with `tail -1 <output-jsonl>`.
 
 For a quick local smoke test without a model server:
 
@@ -781,13 +790,35 @@ The prompt renderer supports three modes:
 
 - `plain`: direct ambiguity and experiment-choice instructions
 - `contrast`: asks the model to contrast surviving hypotheses before choosing
-- `compare`: asks the model to compare each candidate experiment with rough estimates of channel capture, accumulation duration, excitation strength, and expected total separation before choosing
+- `compare`: asks the model to compare each candidate experiment internally using channel capture, accumulation duration, excitation strength, and expected measured trajectory separation before choosing
 
 Example compare-mode run:
 
 ```powershell
-python agents/run_batch_baseline.py --scenario-glob "generated_scenarios/*.json" --output-jsonl results/qwen_compare_thinking.jsonl --prompt-mode compare --prediction-mode external --external-provider vllm --external-model Qwen/Qwen3.6-35B-A3B --external-base-url http://localhost:8000/v1/chat/completions --external-temperature 1.0 --external-top-p 0.95 --external-top-k 20 --external-max-tokens 4096 --external-thinking on --external-timeout-sec 180 --continue-on-error
+python agents/run_batch_baseline.py --scenario-glob "generated_scenarios/*.json" --output-jsonl results/qwen_compare_fixed_thinking_off.jsonl --prompt-mode compare --prediction-mode external --external-provider vllm --external-model Qwen/Qwen3.6-35B-A3B --external-base-url http://localhost:8000/v1/chat/completions --external-temperature 0 --external-max-tokens 2048 --external-thinking off --external-timeout-sec 180 --continue-on-error
 ```
+
+Example compare-mode run that keeps Qwen-style thinking enabled while using the
+tagged answer parser:
+
+```powershell
+python agents/run_batch_baseline.py --scenario-glob "generated_scenarios/*.json" --output-jsonl results/qwen_compare_thinking_tagged.jsonl --prompt-mode compare --prediction-mode external --external-provider vllm --external-model Qwen/Qwen3.6-35B-A3B --external-base-url http://localhost:8000/v1/chat/completions --external-temperature 1.0 --external-top-p 0.95 --external-top-k 20 --external-max-tokens 4096 --external-thinking on --external-timeout-sec 180 --continue-on-error
+```
+
+Recent controlled Qwen/Qwen3.6-35B-A3B runs on the 100 generated scenarios used
+`temperature=0`, `thinking=off`, and `max_tokens=2048`:
+
+| result file | prompt mode | ok/errors | exact | utility ratio | normalized regret | near-opt 0.8 | near-opt 0.5 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `results/qwen_compare_fixed_thinking_off.jsonl` | `compare` | 100/0 | 0.27 | 0.637 | 0.404 | 0.35 | 0.61 |
+| `results/qwen_contrast_thinking_off.jsonl` | `contrast` | 100/0 | 0.06 | 0.447 | 0.611 | 0.13 | 0.37 |
+
+The fixed `compare` prompt improved over the earlier thinking-off compare run
+(`exact=0.15`, `utility_ratio=0.528`) by making excitation subordinate to
+measured trajectory separation. Its remaining bias is over-selecting velocity
+measurements and never selecting extended-window experiments, even though the
+oracle best family is split across velocity channels, extended windows, and
+initial-velocity interventions.
 
 ### Scenario Generation
 
